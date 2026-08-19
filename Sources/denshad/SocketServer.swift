@@ -152,84 +152,87 @@ actor SocketServer {
                 continue
             }
 
-            if let id = await handle(request, on: connection) {
+            let command: DaemonCommand
+            do {
+                command = try request.command()
+            } catch {
+                connection.send(Response.failure(id: request.id, "bad request: \(error)"))
+                continue
+            }
+
+            if let id = await handle(command, requestID: request.id, on: connection) {
                 subscriptions.append(id)
             }
         }
     }
 
-    private func handle(_ request: Request, on connection: Connection) async -> UUID? {
-        switch request.op {
+    private func handle(_ command: DaemonCommand, requestID: Int, on connection: Connection) async
+        -> UUID?
+    {
+        switch command {
         case .ping:
-            connection.send(Response(id: request.id, ok: true))
+            connection.send(Response(id: requestID, ok: true))
 
         case .status:
             connection.send(
                 Response(
-                    id: request.id, ok: true, services: await supervisor.snapshot(),
+                    id: requestID, ok: true, services: await supervisor.snapshot(),
                     warnings: await supervisor.warnings()))
 
-        case .start:
-            let errors = await supervisor.start(names: request.names)
-            connection.send(response(request.id, errors, await supervisor.snapshot()))
+        case .start(let names):
+            let errors = await supervisor.start(names: names)
+            connection.send(response(requestID, errors, await supervisor.snapshot()))
 
-        case .stop:
-            let errors = await supervisor.stop(names: request.names)
-            connection.send(response(request.id, errors, await supervisor.snapshot()))
+        case .stop(let names):
+            let errors = await supervisor.stop(names: names)
+            connection.send(response(requestID, errors, await supervisor.snapshot()))
 
-        case .restart:
-            let errors = await supervisor.restart(names: request.names)
-            connection.send(response(request.id, errors, await supervisor.snapshot()))
+        case .restart(let names):
+            let errors = await supervisor.restart(names: names)
+            connection.send(response(requestID, errors, await supervisor.snapshot()))
 
         case .reload:
             do {
                 let warnings = try await supervisor.reload()
                 connection.send(
                     Response(
-                        id: request.id, ok: true, services: await supervisor.snapshot(),
+                        id: requestID, ok: true, services: await supervisor.snapshot(),
                         warnings: warnings))
             } catch {
-                connection.send(Response.failure(id: request.id, "\(error)"))
+                connection.send(Response.failure(id: requestID, "\(error)"))
             }
 
-        case .input:
-            guard let name = request.name, let data = request.data else {
-                connection.send(
-                    Response.failure(id: request.id, "input requires \"name\" and \"data\""))
-                return nil
-            }
+        case .input(let name, let data):
             do {
                 try await supervisor.sendInput(name: name, data: data)
-                connection.send(Response(id: request.id, ok: true))
+                connection.send(Response(id: requestID, ok: true))
             } catch {
-                connection.send(Response.failure(id: request.id, "\(error)"))
+                connection.send(Response.failure(id: requestID, "\(error)"))
             }
 
-        case .logs:
-            guard let name = request.name else {
-                connection.send(Response.failure(id: request.id, "logs requires \"name\""))
-                return nil
-            }
+        case .logs(let name, let tail, let follow):
             do {
-                let lines = try await supervisor.logLines(name: name, tail: request.tail)
-                connection.send(Response(id: request.id, ok: true, lines: lines))
-                guard request.follow == true else { return nil }
+                let lines = try await supervisor.logLines(name: name, tail: tail)
+                connection.send(Response(id: requestID, ok: true, lines: lines))
+                guard follow else { return nil }
                 let (id, stream) = await supervisor.subscribe(status: false, logFilter: name)
                 pump(stream, to: connection)
                 return id
             } catch {
-                connection.send(Response.failure(id: request.id, "\(error)"))
+                connection.send(Response.failure(id: requestID, "\(error)"))
             }
 
         case .watch:
             connection.send(
-                Response(id: request.id, ok: true, services: await supervisor.snapshot()))
+                Response(
+                    id: requestID, ok: true, services: await supervisor.snapshot(),
+                    warnings: await supervisor.warnings()))
             let (id, stream) = await supervisor.subscribe(status: true, logFilter: nil)
             pump(stream, to: connection)
             return id
 
         case .shutdown:
-            connection.send(Response(id: request.id, ok: true))
+            connection.send(Response(id: requestID, ok: true))
             Task { [supervisor] in
                 await supervisor.stopAll()
                 try? await Task.sleep(for: .milliseconds(150))
@@ -239,10 +242,10 @@ actor SocketServer {
         return nil
     }
 
-    private func pump(_ stream: AsyncStream<Event>, to connection: Connection) {
+    private func pump(_ stream: AsyncStream<DaemonEvent>, to connection: Connection) {
         Task {
             for await event in stream {
-                connection.send(event)
+                connection.send(Event(event))
             }
         }
     }

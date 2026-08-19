@@ -4,7 +4,7 @@ import SwiftUI
 
 @MainActor
 @Observable
-final class LogFollower {
+class LogFollower {
     let service: String
     var lines: [LogLine] = []
     var failure: String?
@@ -60,7 +60,7 @@ final class LogFollower {
             do {
                 let client = try DaemonClient.connect()
                 control.set(client)
-                let response = try client.send(.logs, name: service, tail: 2000, follow: true)
+                let response = try client.send(.logs(name: service, tail: 2000, follow: true))
                 guard response.ok else {
                     let message = response.error ?? "could not read logs"
                     Task { @MainActor in self?.failure = message }
@@ -70,8 +70,8 @@ final class LogFollower {
                 Task { @MainActor in self?.append(initial) }
 
                 while !control.isStopping, let message = try client.nextMessage() {
-                    if case .event(let event) = message, event.event == .log,
-                        let line = event.line
+                    if case .event(let event) = message,
+                        case .log(_, let line) = try event.decoded()
                     {
                         Task { @MainActor in self?.append([line]) }
                     }

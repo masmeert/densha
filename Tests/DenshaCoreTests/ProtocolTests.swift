@@ -53,6 +53,57 @@ struct ProtocolTests {
         #expect(request.names == nil)
     }
 
+    @Test("typed commands round-trip through the loose wire format")
+    func typedCommandsRoundTrip() throws {
+        let commands: [DaemonCommand] = [
+            .ping,
+            .status,
+            .start(names: nil),
+            .stop(names: ["web"]),
+            .restart(names: ["api"]),
+            .reload,
+            .logs(name: "web", tail: 200, follow: true),
+            .watch,
+            .input(name: "mobile", data: "r"),
+            .shutdown,
+        ]
+
+        for command in commands {
+            let wireRequest = Request(id: 1, command: command)
+            let decodedRequest = try Wire.decoder.decode(
+                Request.self, from: Wire.encoder.encode(wireRequest))
+            #expect(try decodedRequest.command() == command)
+        }
+    }
+
+    @Test("invalid wire field combinations are rejected at the boundary")
+    func invalidCommandsAreRejected() {
+        #expect(throws: (any Error).self) {
+            try Request(id: 1, op: .logs).command()
+        }
+        #expect(throws: (any Error).self) {
+            try Request(id: 1, op: .input, name: "web").command()
+        }
+    }
+
+    @Test("typed events round-trip through the loose wire format")
+    func typedEventsRoundTrip() throws {
+        let status = ServiceStatus(name: "web", state: .running)
+        let line = LogLine(seq: 1, ts: 10, text: "ready")
+        let events: [DaemonEvent] = [
+            .status([status]),
+            .log(name: "web", line: line),
+            .reloaded(services: [status], warnings: ["missing cwd"]),
+        ]
+
+        for event in events {
+            let wireEvent = Event(event)
+            let decodedEvent = try Wire.decoder.decode(
+                Event.self, from: Wire.encoder.encode(wireEvent))
+            #expect(try decodedEvent.decoded() == event)
+        }
+    }
+
     @Test("status round-trips through JSON unchanged")
     func statusRoundTrip() throws {
         let original = ServiceStatus(

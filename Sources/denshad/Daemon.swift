@@ -15,9 +15,8 @@ final class SignalHandlers {
     }
 }
 
-@main
-struct Daemon {
-    static func main() async {
+public enum DaemonRuntime {
+    public static func run() async {
         try? Paths.createDirectories()
 
         guard let lock = InstanceLock(path: Paths.lockFile) else {
@@ -92,4 +91,4 @@ struct Daemon {
     }
 }
 
-func log(_ message: String) { Daemon.log(message) }
+func log(_ message: String) { DaemonRuntime.log(message) }

@@ -1,4 +1,5 @@
 import DenshaCore
+import Foundation
 import SwiftUI
 
 public enum LogWindowID {
@@ -6,29 +7,52 @@ public enum LogWindowID {
 }
 
 public struct LogWindow: View {
-    public init() {}
-
     @Environment(AppModel.self) private var model
 
-    @State private var followers: [String: LogFollower] = [:]
+    @State private var session = LogSession()
     @State private var query = ""
     @State private var following = true
     @State private var showTimestamps = false
     @State private var keysToSend = ""
 
-    private var selected: String? {
-        model.selectedLogService ?? model.services.first?.name
+    public init() {}
+
+    private var selectedService: String? {
+        if let selectedLogService = model.selectedLogService,
+            model.services.contains(where: { $0.name == selectedLogService })
+        {
+            return selectedLogService
+        }
+        return model.services.first?.name
     }
 
     public var body: some View {
+        @Bindable var model = model
+
         VStack(spacing: 0) {
-            toolbar
+            LogToolbar(
+                services: model.services,
+                selection: $model.selectedLogService,
+                query: $query,
+                following: $following,
+                showTimestamps: $showTimestamps,
+                clear: { session.follower?.clear() }
+            )
             Divider()
-            if let name = selected, let follower = followers[name] {
-                transcript(follower)
+            if let name = selectedService, let follower = session.follower {
+                LogTranscript(
+                    follower: follower,
+                    query: query,
+                    following: following,
+                    showTimestamps: showTimestamps
+                )
                 Divider()
-                inputBar(
-                    name: name, running: model.services.first { $0.name == name }?.isLive ?? false)
+                LogInputBar(
+                    name: name,
+                    running: model.services.first { $0.name == name }?.isLive ?? false,
+                    keys: $keysToSend,
+                    send: model.send
+                )
             } else {
                 ContentUnavailableView(
                     "No service selected", systemImage: "list.bullet.rectangle",
@@ -36,27 +60,38 @@ public struct LogWindow: View {
             }
         }
         .frame(minWidth: 560, minHeight: 360)
-        .onChange(of: selected, initial: true) { _, name in
-            guard let name else { return }
-            ensureFollower(name)
+        .onAppear {
+            selectService(selectedService)
+        }
+        .onChange(of: selectedService) { _, name in
+            selectService(name)
         }
         .onDisappear {
-            for follower in followers.values { follower.stop() }
-            followers.removeAll()
+            session.stop()
         }
     }
 
-    private var toolbar: some View {
+    private func selectService(_ service: String?) {
+        if model.selectedLogService != service {
+            model.selectedLogService = service
+        }
+        session.select(service)
+    }
+}
+
+private struct LogToolbar: View {
+    let services: [ServiceStatus]
+    @Binding var selection: String?
+    @Binding var query: String
+    @Binding var following: Bool
+    @Binding var showTimestamps: Bool
+    let clear: () -> Void
+
+    var body: some View {
         HStack(spacing: 8) {
-            Picker(
-                "",
-                selection: Binding(
-                    get: { selected ?? "" },
-                    set: { model.selectedLogService = $0 }
-                )
-            ) {
-                ForEach(model.services) { service in
-                    Text(service.name).tag(service.name)
+            Picker("", selection: $selection) {
+                ForEach(services) { service in
+                    Text(service.name).tag(Optional(service.name))
                 }
             }
             .labelsHidden()
@@ -80,9 +115,7 @@ public struct LogWindow: View {
             .toggleStyle(.button)
             .help("Show timestamps")
 
-            Button {
-                if let name = selected { followers[name]?.clear() }
-            } label: {
+            Button(action: clear) {
                 Image(systemName: "trash")
             }
             .help("Clear this view (does not touch the log file)")
@@ -90,10 +123,31 @@ public struct LogWindow: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
     }
+}
 
-    private func transcript(_ follower: LogFollower) -> some View {
-        let lines = filtered(follower.lines)
-        return ScrollViewReader { proxy in
+private struct LogTranscript: View {
+    let follower: LogFollower
+    let query: String
+    let following: Bool
+    let showTimestamps: Bool
+
+    private static let bottomAnchor = UInt64.max
+    private static let formatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        return formatter
+    }()
+
+    private var lines: [LogLine] {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespaces)
+        guard !trimmedQuery.isEmpty else { return follower.lines }
+        return follower.lines.filter {
+            Ansi.strip($0.text).localizedCaseInsensitiveContains(trimmedQuery)
+        }
+    }
+
+    var body: some View {
+        ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     if let failure = follower.failure {
@@ -119,32 +173,33 @@ public struct LogWindow: View {
                         .padding(.vertical, 1)
                         .id(line.seq)
                     }
-                    Color.clear.frame(height: 1).id(bottomAnchor)
+                    Color.clear.frame(height: 1).id(Self.bottomAnchor)
                 }
                 .padding(.vertical, 4)
             }
             .background(Color(nsColor: .textBackgroundColor))
             .onChange(of: lines.last?.seq) { _, _ in
                 guard following else { return }
-                proxy.scrollTo(bottomAnchor, anchor: .bottom)
+                proxy.scrollTo(Self.bottomAnchor, anchor: .bottom)
             }
             .onChange(of: following) { _, isFollowing in
-                if isFollowing { proxy.scrollTo(bottomAnchor, anchor: .bottom) }
+                if isFollowing { proxy.scrollTo(Self.bottomAnchor, anchor: .bottom) }
             }
         }
     }
 
-    private var bottomAnchor: UInt64 { UInt64.max }
-
-    private func filtered(_ lines: [LogLine]) -> [LogLine] {
-        let trimmed = query.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return lines }
-        return lines.filter {
-            Ansi.strip($0.text).localizedCaseInsensitiveContains(trimmed)
-        }
+    private static func time(_ timestamp: Double) -> String {
+        formatter.string(from: Date(timeIntervalSince1970: timestamp))
     }
+}
 
-    private func inputBar(name: String, running: Bool) -> some View {
+private struct LogInputBar: View {
+    let name: String
+    let running: Bool
+    @Binding var keys: String
+    let send: (String, String) -> Void
+
+    var body: some View {
         HStack(spacing: 6) {
             Image(systemName: "keyboard")
                 .font(.system(size: 10))
@@ -153,43 +208,24 @@ public struct LogWindow: View {
                 running
                     ? "Send keys to \(name) — e.g. i, a, r for Expo"
                     : "\(name) is not running",
-                text: $keysToSend
+                text: $keys
             )
             .textFieldStyle(.plain)
             .font(.system(size: 12, design: .monospaced))
             .disabled(!running)
-            .onSubmit {
-                guard !keysToSend.isEmpty else { return }
-                model.send(keysToSend, to: name)
-                keysToSend = ""
-            }
-            Button("Send") {
-                model.send(keysToSend, to: name)
-                keysToSend = ""
-            }
-            .controlSize(.small)
-            .disabled(!running || keysToSend.isEmpty)
+            .onSubmit(sendKeys)
+            Button("Send", action: sendKeys)
+                .controlSize(.small)
+                .disabled(!running || keys.isEmpty)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
     }
 
-    private func ensureFollower(_ name: String) {
-        if followers[name] == nil {
-            let follower = LogFollower(service: name)
-            followers[name] = follower
-            follower.start()
-        }
-    }
-
-    private static let formatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm:ss"
-        return f
-    }()
-
-    private static func time(_ ts: Double) -> String {
-        formatter.string(from: Date(timeIntervalSince1970: ts))
+    private func sendKeys() {
+        guard !keys.isEmpty else { return }
+        send(keys, name)
+        keys = ""
     }
 }
 

@@ -126,14 +126,10 @@ public final class DaemonClient {
     }
 
     @discardableResult
-    public func send(
-        _ op: Op, names: [String]? = nil, name: String? = nil, tail: Int? = nil,
-        follow: Bool? = nil, data: String? = nil
-    ) throws -> Response {
+    public func send(_ command: DaemonCommand) throws -> Response {
         let id = nextID
         nextID += 1
-        let request = Request(
-            id: id, op: op, names: names, name: name, tail: tail, follow: follow, data: data)
+        let request = Request(id: id, command: command)
         try socket.write(Wire.line(request))
         while let message = try nextMessage() {
             if case .response(let response) = message, response.id == id {

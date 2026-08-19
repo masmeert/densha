@@ -13,6 +13,19 @@ public enum Op: String, Codable, Sendable {
     case shutdown
 }
 
+public enum DaemonCommand: Sendable, Equatable {
+    case ping
+    case status
+    case start(names: [String]?)
+    case stop(names: [String]?)
+    case restart(names: [String]?)
+    case reload
+    case logs(name: String, tail: Int?, follow: Bool)
+    case watch
+    case input(name: String, data: String)
+    case shutdown
+}
+
 public struct Request: Codable, Sendable {
     public var id: Int
     public var op: Op
@@ -33,6 +46,63 @@ public struct Request: Codable, Sendable {
         self.tail = tail
         self.follow = follow
         self.data = data
+    }
+
+    public init(id: Int, command: DaemonCommand) {
+        self.id = id
+        switch command {
+        case .ping:
+            self.op = .ping
+        case .status:
+            self.op = .status
+        case .start(let names):
+            self.op = .start
+            self.names = names
+        case .stop(let names):
+            self.op = .stop
+            self.names = names
+        case .restart(let names):
+            self.op = .restart
+            self.names = names
+        case .reload:
+            self.op = .reload
+        case .logs(let name, let tail, let follow):
+            self.op = .logs
+            self.name = name
+            self.tail = tail
+            self.follow = follow
+        case .watch:
+            self.op = .watch
+        case .input(let name, let data):
+            self.op = .input
+            self.name = name
+            self.data = data
+        case .shutdown:
+            self.op = .shutdown
+        }
+    }
+
+    public func command() throws -> DaemonCommand {
+        switch op {
+        case .ping: return .ping
+        case .status: return .status
+        case .start: return .start(names: names)
+        case .stop: return .stop(names: names)
+        case .restart: return .restart(names: names)
+        case .reload: return .reload
+        case .logs:
+            guard let name else {
+                throw DenshaError.protocolViolation("logs requires \"name\"")
+            }
+            return .logs(name: name, tail: tail, follow: follow ?? false)
+        case .watch: return .watch
+        case .input:
+            guard let name, let data else {
+                throw DenshaError.protocolViolation("input requires \"name\" and \"data\"")
+            }
+            return .input(name: name, data: data)
+        case .shutdown: return .shutdown
+        }
     }
 }
 
@@ -144,14 +214,56 @@ public struct Event: Codable, Sendable {
     public var services: [ServiceStatus]?
     public var name: String?
     public var line: LogLine?
+    public var warnings: [String]?
 
     public init(
-        event: Kind, services: [ServiceStatus]? = nil, name: String? = nil, line: LogLine? = nil
+        event: Kind, services: [ServiceStatus]? = nil, name: String? = nil, line: LogLine? = nil,
+        warnings: [String]? = nil
     ) {
         self.event = event
         self.services = services
         self.name = name
         self.line = line
+        self.warnings = warnings
+    }
+}
+
+public enum DaemonEvent: Sendable, Equatable {
+    case status([ServiceStatus])
+    case log(name: String, line: LogLine)
+    case reloaded(services: [ServiceStatus], warnings: [String])
+}
+
+extension Event {
+    public init(_ event: DaemonEvent) {
+        switch event {
+        case .status(let services):
+            self.init(event: .status, services: services)
+        case .log(let name, let line):
+            self.init(event: .log, name: name, line: line)
+        case .reloaded(let services, let warnings):
+            self.init(event: .reloaded, services: services, warnings: warnings)
+        }
+    }
+
+    public func decoded() throws -> DaemonEvent {
+        switch event {
+        case .status:
+            guard let services else {
+                throw DenshaError.protocolViolation("status event requires \"services\"")
+            }
+            return .status(services)
+        case .log:
+            guard let name, let line else {
+                throw DenshaError.protocolViolation("log event requires \"name\" and \"line\"")
+            }
+            return .log(name: name, line: line)
+        case .reloaded:
+            guard let services else {
+                throw DenshaError.protocolViolation("reloaded event requires \"services\"")
+            }
+            return .reloaded(services: services, warnings: warnings ?? [])
+        }
     }
 }
 

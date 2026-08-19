@@ -15,6 +15,33 @@ enum LinkEvent: Sendable {
     case warnings([String])
 }
 
+@MainActor
+protocol DaemonServing: AnyObject {
+    func events() -> AsyncStream<LinkEvent>
+    func run(_ command: DaemonCommand) async throws -> Response
+    func stop()
+}
+
+@MainActor
+final class LiveDaemonService: DaemonServing {
+    private var link: DaemonLink?
+
+    func events() -> AsyncStream<LinkEvent> {
+        let link = DaemonLink()
+        self.link = link
+        return link.events()
+    }
+
+    func run(_ command: DaemonCommand) async throws -> Response {
+        try await Commands.run(command)
+    }
+
+    func stop() {
+        link?.stop()
+        link = nil
+    }
+}
+
 final class DaemonLink: @unchecked Sendable {
     private let lock = NSLock()
     private var stopping = false
@@ -55,8 +82,14 @@ final class DaemonLink: @unchecked Sendable {
                 while !isStopping, let message = try client.nextMessage() {
                     switch message {
                     case .event(let event):
-                        if let services = event.services {
+                        switch try event.decoded() {
+                        case .status(let services):
                             continuation.yield(.services(services))
+                        case .reloaded(let services, let warnings):
+                            continuation.yield(.services(services))
+                            continuation.yield(.warnings(warnings))
+                        case .log:
+                            continue
                         }
                     case .response:
                         continue
@@ -103,16 +136,14 @@ final class DaemonLink: @unchecked Sendable {
 }
 
 enum Commands {
-    static func run(
-        _ op: Op, names: [String]? = nil, name: String? = nil, data: String? = nil
-    ) async throws -> Response {
+    static func run(_ command: DaemonCommand) async throws -> Response {
         try await withCheckedThrowingContinuation {
             (continuation: CheckedContinuation<Response, Error>) in
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
                     let client = try DaemonClient.connect()
                     defer { client.close() }
-                    let response = try client.send(op, names: names, name: name, data: data)
+                    let response = try client.send(command)
                     if !response.ok {
                         throw DenshaError.daemonUnreachable(response.error ?? "command failed")
                     }
