@@ -84,7 +84,7 @@ struct ServiceRow: View {
                     Spacer(minLength: 6)
 
                     if let port = service.port {
-                        Text(":\(port)")
+                        Text(verbatim: ":\(port)")
                             .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(.tertiary)
                             .monospacedDigit()
