@@ -59,7 +59,26 @@ USAGE
 fi
 
 echo "==> signing as $IDENTITY"
+# Anything that gets notarized is a distributable, so build for both
+# architectures unless the caller deliberately opts out for a quick check.
+export DENSHA_UNIVERSAL="${DENSHA_UNIVERSAL:-1}"
 DENSHA_SIGN_IDENTITY="$IDENTITY" ./Scripts/build-app.sh release
+
+ARCHES="$(lipo -archs "$APP/Contents/MacOS/Densha")"
+if [ "$DENSHA_UNIVERSAL" = "1" ]; then
+    for required in arm64 x86_64; do
+        case " $ARCHES " in
+            *" $required "*) ;;
+            *)
+                echo "error: distributable is missing $required (has: $ARCHES)" >&2
+                exit 1
+                ;;
+        esac
+    done
+    echo "==> universal: $ARCHES"
+else
+    echo "WARNING: DENSHA_UNIVERSAL=0 — this build is $ARCHES only, do not ship it" >&2
+fi
 
 # AppleDouble files break code sealing once the bundle has been zipped and
 # unzipped on another machine, so strip extended attributes before every ditto.
