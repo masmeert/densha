@@ -1,0 +1,6 @@
+.build/
+.swiftpm/
+*.xcodeproj
+dist/
+Densha.app/
+.DS_Store
