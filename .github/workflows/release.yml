@@ -52,6 +52,20 @@ jobs:
           echo "KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
 
           printf '%s' "$CERT_P12_BASE64" | base64 --decode > "$CERT"
+
+          if ! openssl pkcs12 -in "$CERT" -nokeys -passin env:CERT_PASSWORD -noout 2>/dev/null; then
+            echo "::error::APPLE_CERT_PASSWORD does not match APPLE_CERT_P12_BASE64." \
+              "A trailing newline is the usual cause — set it with 'gh secret set" \
+              "APPLE_CERT_PASSWORD' and paste at the prompt rather than piping echo."
+            exit 1
+          fi
+          if [ "$(openssl pkcs12 -in "$CERT" -nocerts -nodes -passin env:CERT_PASSWORD \
+              2>/dev/null | grep -c 'PRIVATE KEY')" -eq 0 ]; then
+            echo "::error::the .p12 contains no private key. Re-export from Keychain" \
+              "Access > login > My Certificates (not the Certificates category)."
+            exit 1
+          fi
+
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
           security set-keychain-settings -lut 3600 "$KEYCHAIN"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
@@ -63,6 +77,25 @@ jobs:
             $(security list-keychains -d user | tr -d '"')
           rm -f "$CERT"
           security find-identity -v -p codesigning "$KEYCHAIN"
+
+      - name: Check notary credentials
+        env:
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          if ! xcrun notarytool history \
+              --apple-id "$NOTARY_APPLE_ID" \
+              --team-id "$NOTARY_TEAM_ID" \
+              --password "$NOTARY_PASSWORD" > /dev/null 2>&1; then
+            echo "::error::Apple rejected the notary credentials. Check NOTARY_APPLE_ID," \
+              "NOTARY_TEAM_ID and NOTARY_PASSWORD. The password must be an" \
+              "app-specific password from appleid.apple.com, not your Apple ID" \
+              "password, and must not have a trailing newline."
+            exit 1
+          fi
+          echo "notary credentials accepted"
 
       - name: Build, sign, notarize and staple
         env:
