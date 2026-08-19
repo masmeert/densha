@@ -2,5 +2,44 @@
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
         <title>Densha</title>
+        <item>
+            <title>0.3.0</title>
+            <pubDate>Wed, 19 Aug 2026 15:59:04 +0200</pubDate>
+            <link>https://github.com/masmeert/densha</link>
+            <sparkle:version>5</sparkle:version>
+            <sparkle:shortVersionString>0.3.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>Densha 0.3.0</h2>
+<h3>Highlights</h3>
+<ul>
+<li><strong>Densha updates itself</strong>: the app ships Sparkle and checks a signed appcast, so a new version arrives without a manual download. "Check for Updates…" also lives in the menu.</li>
+<li><strong>Services group by project</strong>: the menu lists services under the project that defines them, and surfaces ports in use that no service claims.</li>
+</ul>
+<h3>Added</h3>
+<ul>
+<li>Added self-updating through Sparkle, with an EdDSA-signed appcast and a "Check for Updates…" menu item.</li>
+<li>Added project grouping to the menu, with unclaimed listening ports shown separately and collapsed by default.</li>
+<li>Added a "Densha on GitHub" menu item beside "Check for Updates…".</li>
+</ul>
+<h3>Changed</h3>
+<ul>
+<li>Trimmed the readme and renamed the example project.</li>
+</ul>
+<h3>Fixed</h3>
+<ul>
+<li>Fixed release builds defaulting to the host architecture, which could publish an Apple-Silicon-only app that excluded Intel Macs.</li>
+</ul>
+<h3>Internal</h3>
+<ul>
+<li>Version now comes from a single <code>version.env</code>, with <code>Info.plist</code> generated at build time and a monotonic build number.</li>
+<li>Added a launch smoke test that runs the packaged app with the build checkout unreadable, covering resource, helper, and framework resolution.</li>
+<li>Release builds archive dSYMs and verify their UUIDs match the shipped binaries, so crash reports can be symbolicated.</li>
+<li>Zipping strips extended attributes and uses <code>ditto --norsrc</code>, so a downloaded bundle no longer risks broken code sealing from AppleDouble files.</li>
+<li>Notarization accepts an App Store Connect API key, and moved out of the Makefile into <code>Scripts/</code>.</li>
+<li>CI pins Xcode, caches SwiftPM builds, pins actions by digest, and bounds every job with a timeout.</li>
+</ul>
+]]></description>
+            <enclosure url="https://github.com/masmeert/densha/releases/download/v0.3.0/Densha-0.3.0-universal.zip" length="4912125" type="application/octet-stream" sparkle:edSignature="+Ezfw8KIMv59PBB5mDzgDjuFBeYm2g9yG+I8EQKHSpsqseX9g873gZm2IRj817AvqMxZ3NCL7dRjOZJNnvayDQ=="/>
+        </item>
     </channel>
 </rss>
