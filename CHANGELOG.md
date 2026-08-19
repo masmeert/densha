@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.2 — 2026-08-19
 
 ### Added
 - Projects fold away: click a group header to collapse it, and it stays folded across launches. A collapsed project keeps its service count and shows the most restrictive signal among its members, so a failure cannot hide behind a fold.
