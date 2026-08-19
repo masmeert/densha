@@ -7,6 +7,9 @@ public struct MenuPanel: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openWindow) private var openWindow
 
+    @AppStorage("scannedPortsExpanded") private var scannedPortsExpanded = false
+    @State private var hoveringScannedPortsHeader = false
+
     private static let visiblePortRows = 6
 
     public var body: some View {
@@ -113,36 +116,57 @@ public struct MenuPanel: View {
 
     private var scannedPortSection: some View {
         VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 6) {
-                Text("Other ports")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.tertiary)
-                Text("\(model.scannedPorts.count)")
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(.quaternary)
-                    .monospacedDigit()
+            Button {
+                withAnimation(.easeOut(duration: 0.18)) { scannedPortsExpanded.toggle() }
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(scannedPortsExpanded ? 90 : 0))
+                    Text("Other ports")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.tertiary)
+                    Text("\(model.scannedPorts.count)")
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.quaternary)
+                        .monospacedDigit()
+                    Spacer(minLength: 0)
+                }
+                .opacity(hoveringScannedPortsHeader ? 1 : 0.85)
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
+                .padding(.bottom, 2)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 8)
-            .padding(.bottom, 2)
+            .buttonStyle(.plain)
+            .onHover { hoveringScannedPortsHeader = $0 }
             .help("Listening ports that no service in services.toml claims")
+            .accessibilityLabel("Other ports")
+            .accessibilityValue(scannedPortsExpanded ? "Expanded" : "Collapsed")
 
-            ScrollView(.vertical) {
-                VStack(spacing: 2) {
-                    ForEach(model.scannedPorts) { scanned in
-                        ScannedPortRow(
-                            scanned: scanned,
-                            onOpen: { model.openInBrowser(scanned) },
-                            onCopyURL: {
-                                model.copyToClipboard("http://localhost:\(scanned.port)")
-                            }
-                        )
+            if scannedPortsExpanded {
+                ScrollView(.vertical) {
+                    VStack(spacing: 2) {
+                        ForEach(model.scannedPorts) { scanned in
+                            ScannedPortRow(
+                                scanned: scanned,
+                                onOpen: { model.openInBrowser(scanned) },
+                                onCopyURL: {
+                                    model.copyToClipboard("http://localhost:\(scanned.port)")
+                                }
+                            )
+                        }
                     }
                 }
+                .frame(
+                    height: CGFloat(min(model.scannedPorts.count, Self.visiblePortRows)) * 30 - 2
+                )
+                .scrollBounceBehavior(.basedOnSize)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
-            .frame(height: CGFloat(min(model.scannedPorts.count, Self.visiblePortRows)) * 30 - 2)
-            .scrollBounceBehavior(.basedOnSize)
         }
+        .clipped()
     }
 
     private var emptyState: some View {
