@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.1 — 2026-08-19
 
 ### Added
 - Densha is now MIT licensed.
