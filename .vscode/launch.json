@@ -1,0 +1,64 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:densha}",
+            "name": "Debug denshad",
+            "target": "denshad",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug denshad"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:densha}",
+            "name": "Release denshad",
+            "target": "denshad",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release denshad"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:densha}",
+            "name": "Debug densha",
+            "target": "densha",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug densha"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:densha}",
+            "name": "Release densha",
+            "target": "densha",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release densha"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:densha}",
+            "name": "Debug DenshaApp",
+            "target": "DenshaApp",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug DenshaApp"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:densha}",
+            "name": "Release DenshaApp",
+            "target": "DenshaApp",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release DenshaApp"
+        }
+    ]
+}

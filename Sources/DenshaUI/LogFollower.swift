@@ -1,8 +1,7 @@
 import DenshaCore
+import Observation
 import SwiftUI
 
-/// Streams one service's output for the log window. A separate connection per
-/// followed service keeps this independent of the panel's status link.
 @MainActor
 @Observable
 final class LogFollower {
@@ -10,8 +9,6 @@ final class LogFollower {
     var lines: [LogLine] = []
     var failure: String?
 
-    /// Matches the daemon's own ring size, so scrolling back in the window shows
-    /// everything the daemon still remembers and nothing it does not.
     private let maxLines = 5000
     private var thread: Thread?
     private let control = Control()
@@ -22,11 +19,14 @@ final class LogFollower {
         private var client: DaemonClient?
 
         var isStopping: Bool {
-            lock.lock(); defer { lock.unlock() }
+            lock.lock()
+            defer { lock.unlock() }
             return stopping
         }
         func set(_ c: DaemonClient?) {
-            lock.lock(); client = c; lock.unlock()
+            lock.lock()
+            client = c
+            lock.unlock()
         }
         func stop() {
             lock.lock()
@@ -42,8 +42,18 @@ final class LogFollower {
         self.service = service
     }
 
+    private static var isRunningForPreviews: Bool {
+        ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+    }
+
     func start() {
         guard thread == nil else { return }
+        if Self.isRunningForPreviews {
+            #if DEBUG
+                lines = Sample.logLines
+            #endif
+            return
+        }
         let service = service
         let control = control
         let thread = Thread { [weak self] in
@@ -60,7 +70,7 @@ final class LogFollower {
                 Task { @MainActor in self?.append(initial) }
 
                 while !control.isStopping, let message = try client.nextMessage() {
-                    if case let .event(event) = message, event.event == .log,
+                    if case .event(let event) = message, event.event == .log,
                         let line = event.line
                     {
                         Task { @MainActor in self?.append([line]) }
@@ -87,7 +97,6 @@ final class LogFollower {
 
     private func append(_ incoming: [LogLine]) {
         guard !incoming.isEmpty else { return }
-        // The daemon replays a tail on connect, which can overlap lines already shown.
         let known = lines.last?.seq
         let fresh = known.map { last in incoming.filter { $0.seq > last } } ?? incoming
         guard !fresh.isEmpty else { return }

@@ -2,9 +2,6 @@ import Darwin
 import DenshaCore
 import Foundation
 
-/// Probes whether a service is actually serving, as opposed to merely being alive.
-/// A dev server that booted, crashed its listener, but kept the process up looks
-/// "running" to waitpid and "failing" here.
 enum HealthCheck {
     static func probe(_ health: ResolvedHealth) async -> Bool {
         switch health.kind {
@@ -15,8 +12,6 @@ enum HealthCheck {
         }
     }
 
-    /// Non-blocking connect + poll, so a hung listener costs us `timeout` and not a
-    /// parked thread.
     static func tcp(port: Int, timeout: Double) async -> Bool {
         await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .utility).async {
@@ -49,8 +44,6 @@ enum HealthCheck {
         var pfd = pollfd(fd: fd, events: Int16(POLLOUT), revents: 0)
         guard poll(&pfd, 1, Int32(timeout * 1000)) > 0 else { return false }
 
-        // POLLOUT alone is not enough — a refused connection also wakes poll, and the
-        // real verdict is in SO_ERROR.
         var soError: Int32 = 0
         var len = socklen_t(MemoryLayout<Int32>.size)
         guard getsockopt(fd, SOL_SOCKET, SO_ERROR, &soError, &len) == 0 else { return false }
@@ -64,7 +57,6 @@ enum HealthCheck {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.timeoutInterval = timeout
-        // A dev server's own caching must not make a stale success look current.
         request.cachePolicy = .reloadIgnoringLocalCacheData
 
         let config = URLSessionConfiguration.ephemeral
@@ -76,8 +68,6 @@ enum HealthCheck {
         do {
             let (_, response) = try await session.data(for: request)
             guard let http = response as? HTTPURLResponse else { return false }
-            // Any answer below 500 means something is listening and routing; a dev
-            // server legitimately 404s on "/" quite often.
             return http.statusCode < 500
         } catch {
             return false

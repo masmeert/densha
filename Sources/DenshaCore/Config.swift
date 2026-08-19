@@ -1,11 +1,6 @@
 import Foundation
 import TOMLDecoder
 
-// MARK: - On-disk shape
-
-/// Mirrors services.toml exactly. Every overridable key is Optional here so that
-/// "absent" stays distinguishable from "explicitly set to the default value" —
-/// resolution against [defaults] depends on that difference.
 struct ConfigFile: Decodable {
     var defaults: DefaultsSpec?
     var service: [ServiceSpec]?
@@ -54,8 +49,6 @@ struct HealthSpec: Decodable {
     var timeout: Double?
 }
 
-// MARK: - Resolved shape
-
 public enum HealthKind: String, Codable, Sendable {
     case tcp, http
 }
@@ -68,8 +61,6 @@ public struct ResolvedHealth: Sendable, Equatable {
     public let timeout: Double
 }
 
-/// A service with every default already applied, paths expanded, and invariants
-/// checked. The daemon only ever sees this type, so it never repeats the lookup.
 public struct ResolvedService: Sendable, Equatable {
     public let name: String
     public let cwd: String
@@ -83,15 +74,11 @@ public struct ResolvedService: Sendable, Equatable {
     public let restartGrace: Int
     public let health: ResolvedHealth?
 
-    /// argv for posix_spawn. Running through a shell is what lets `command` be a
-    /// normal shell string ("pnpm dev", pipelines, &&) instead of a pre-split argv.
     public var argv: [String] { [shell] + shellArgs + [command] }
 }
 
 public struct Defaults: Sendable {
     public static let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
-    /// Login shell, not interactive: see README troubleshooting. A daemon started by
-    /// launchd inherits almost no environment, so some shell init must run.
     public static let shellArgs = ["-lc"]
     public static let stopTimeout: Double = 5
     public static let restartGrace = 250
@@ -102,8 +89,6 @@ public struct Defaults: Sendable {
 
 public struct Config: Sendable {
     public let services: [ResolvedService]
-    /// Non-fatal problems worth showing the user (e.g. a missing cwd) without
-    /// refusing to load the whole file.
     public let warnings: [String]
 
     public init(services: [ResolvedService], warnings: [String] = []) {
@@ -124,30 +109,24 @@ public enum ConfigError: Error, CustomStringConvertible, Sendable {
 
     public var description: String {
         switch self {
-        case let .missingFile(url):
+        case .missingFile(let url):
             return "no config at \(url.path) — run `densha init` to create a starter file"
-        case let .unreadable(url, reason):
+        case .unreadable(let url, let reason):
             return "cannot read \(url.path): \(reason)"
-        case let .syntax(detail):
+        case .syntax(let detail):
             return "services.toml is not valid TOML: \(detail)"
-        case let .invalid(service, reason):
+        case .invalid(let service, let reason):
             if let service { return "service \"\(service)\": \(reason)" }
             return reason
         }
     }
 }
 
-// MARK: - Loading
-
 public enum ConfigLoader {
-    /// Service names become log filenames and CLI arguments, so keep them boring.
     static let allowedNameCharacters = CharacterSet(
         charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
     )
 
-    /// For the daemon, which must come up even with no config yet: a client may well
-    /// have spawned it before the user ever wrote services.toml, and refusing to
-    /// start would leave the menubar unable to explain why.
     public static func loadTolerant(from url: URL = Paths.configFile) -> Config {
         do {
             return try load(from: url)
@@ -217,9 +196,6 @@ public enum ConfigLoader {
                     reason: "cwd must be absolute or start with ~ (got \"\(spec.cwd)\")"
                 )
             }
-            // A missing directory is a warning, not a hard failure: the config may
-            // legitimately describe a repo that is not cloned on this machine yet,
-            // and refusing to load would take down every other service too.
             var isDir: ObjCBool = false
             if !FileManager.default.fileExists(atPath: cwd, isDirectory: &isDir) {
                 warnings.append("service \"\(name)\": cwd does not exist: \(cwd)")
@@ -254,7 +230,8 @@ public enum ConfigLoader {
                     )
                 }
                 guard (1...65535).contains(hp) else {
-                    throw ConfigError.invalid(service: name, reason: "health.port \(hp) is out of range")
+                    throw ConfigError.invalid(
+                        service: name, reason: "health.port \(hp) is out of range")
                 }
                 let interval = h.interval ?? Defaults.healthInterval
                 let timeout = h.timeout ?? Defaults.healthTimeout
@@ -301,21 +278,19 @@ public enum ConfigLoader {
         return path
     }
 
-    /// DecodingError's default description leaks Swift type names; turn it into
-    /// something that points at the TOML key the user actually mistyped.
     static func describe(_ error: DecodingError) -> String {
         func path(_ context: DecodingError.Context) -> String {
             let parts = context.codingPath.map { $0.intValue.map { "[\($0)]" } ?? $0.stringValue }
             return parts.isEmpty ? "(top level)" : parts.joined(separator: ".")
         }
         switch error {
-        case let .keyNotFound(key, ctx):
+        case .keyNotFound(let key, let ctx):
             return "missing required key \"\(key.stringValue)\" at \(path(ctx))"
-        case let .typeMismatch(type, ctx):
+        case .typeMismatch(let type, let ctx):
             return "wrong type at \(path(ctx)): expected \(readable(type))"
-        case let .valueNotFound(type, ctx):
+        case .valueNotFound(let type, let ctx):
             return "missing value at \(path(ctx)): expected \(readable(type))"
-        case let .dataCorrupted(ctx):
+        case .dataCorrupted(let ctx):
             return ctx.debugDescription
         @unknown default:
             return "\(error)"

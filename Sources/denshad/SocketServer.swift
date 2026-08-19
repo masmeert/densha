@@ -2,8 +2,6 @@ import Darwin
 import DenshaCore
 import Foundation
 
-/// Single-instance guard. Two clients racing to lazily spawn a daemon is normal, so
-/// exactly one must win and the other must exit quietly.
 final class InstanceLock {
     private var fd: Int32
 
@@ -12,7 +10,6 @@ final class InstanceLock {
             at: path.deletingLastPathComponent(), withIntermediateDirectories: true)
         fd = open(path.path, O_CREAT | O_RDWR, 0o600)
         guard fd >= 0 else { return nil }
-        // LOCK_NB: fail immediately rather than queueing behind the running daemon.
         guard flock(fd, LOCK_EX | LOCK_NB) == 0 else {
             close(fd)
             fd = -1
@@ -31,8 +28,6 @@ final class InstanceLock {
     }
 }
 
-/// One client connection. Responses come from the request loop and pushed events come
-/// from a subscription task, so writes are serialised with a lock.
 final class Connection: @unchecked Sendable {
     let socket: UnixSocket
     private let writeLock = NSLock()
@@ -51,14 +46,10 @@ final class Connection: @unchecked Sendable {
         do {
             try socket.write(Wire.line(message))
         } catch {
-            // Peer went away mid-write; stop trying.
             closed = true
         }
     }
 
-    /// Blocking readLine, moved off the cooperative pool onto this connection's own
-    /// serial queue. Connection counts are tiny (a menubar app plus the odd CLI call),
-    /// so a parked thread per connection is cheaper than a non-blocking rewrite.
     func readLine() async throws -> Data? {
         try await withCheckedThrowingContinuation { continuation in
             ioQueue.async { [socket] in
@@ -121,7 +112,6 @@ actor SocketServer {
                     }
                 }
             } catch {
-                // The listener was closed under us, which is how shutdown unblocks this.
                 return
             }
             guard let socket = accepted else { return }
@@ -158,7 +148,6 @@ actor SocketServer {
             do {
                 request = try Wire.decoder.decode(Request.self, from: line)
             } catch {
-                // id is unknown at this point, so 0 stands in for "unparseable".
                 connection.send(Response.failure(id: 0, "bad request: \(error)"))
                 continue
             }
@@ -169,7 +158,6 @@ actor SocketServer {
         }
     }
 
-    /// Returns a subscription id when the request set up a long-lived stream.
     private func handle(_ request: Request, on connection: Connection) async -> UUID? {
         switch request.op {
         case .ping:
@@ -234,7 +222,8 @@ actor SocketServer {
             }
 
         case .watch:
-            connection.send(Response(id: request.id, ok: true, services: await supervisor.snapshot()))
+            connection.send(
+                Response(id: request.id, ok: true, services: await supervisor.snapshot()))
             let (id, stream) = await supervisor.subscribe(status: true, logFilter: nil)
             pump(stream, to: connection)
             return id
@@ -243,7 +232,6 @@ actor SocketServer {
             connection.send(Response(id: request.id, ok: true))
             Task { [supervisor] in
                 await supervisor.stopAll()
-                // Give the reply a moment to reach the client before the process goes.
                 try? await Task.sleep(for: .milliseconds(150))
                 exit(0)
             }

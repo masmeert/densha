@@ -11,7 +11,8 @@ struct ConfigTests {
 
     @Test("minimal service gets built-in defaults")
     func minimal() throws {
-        let config = try parse("""
+        let config = try parse(
+            """
             [[service]]
             name = "web"
             cwd = "/tmp"
@@ -29,7 +30,8 @@ struct ConfigTests {
 
     @Test("argv runs the command through a shell rather than pre-splitting it")
     func argvUsesShell() throws {
-        let config = try parse("""
+        let config = try parse(
+            """
             [[service]]
             name = "web"
             cwd = "/tmp"
@@ -38,13 +40,13 @@ struct ConfigTests {
         let web = try #require(config.service(named: "web"))
         #expect(web.argv.count == 3)
         #expect(web.argv[1] == "-lc")
-        // The whole command must arrive as one argument, or shell operators break.
         #expect(web.argv[2] == "pnpm dev && echo done")
     }
 
     @Test("per-service values win over [defaults], which win over built-ins")
     func resolutionOrder() throws {
-        let config = try parse("""
+        let config = try parse(
+            """
             [defaults]
             stop_timeout = 9
             shell_args = ["-lic"]
@@ -63,16 +65,17 @@ struct ConfigTests {
             """)
         let a = try #require(config.service(named: "a"))
         let b = try #require(config.service(named: "b"))
-        #expect(a.stopTimeout == 9)          // from [defaults]
-        #expect(b.stopTimeout == 30)         // per-service override
-        #expect(a.shellArgs == ["-lic"])     // [defaults] applies to all
+        #expect(a.stopTimeout == 9)
+        #expect(b.stopTimeout == 30)
+        #expect(a.shellArgs == ["-lic"])
         #expect(b.shellArgs == ["-lic"])
         #expect(a.restartGrace == 10)
     }
 
     @Test("tilde in cwd expands to the home directory")
     func tildeExpansion() throws {
-        let config = try parse("""
+        let config = try parse(
+            """
             [[service]]
             name = "web"
             cwd = "~/code/foo"
@@ -85,7 +88,8 @@ struct ConfigTests {
 
     @Test("a missing cwd warns but still loads, so one stale repo cannot block the rest")
     func missingCwdIsAWarning() throws {
-        let config = try parse("""
+        let config = try parse(
+            """
             [[service]]
             name = "web"
             cwd = "/definitely/not/here/at/all"
@@ -99,7 +103,8 @@ struct ConfigTests {
     @Test("duplicate names are rejected")
     func duplicateNames() {
         #expect(throws: ConfigError.self) {
-            try parse("""
+            try parse(
+                """
                 [[service]]
                 name = "web"
                 cwd = "/tmp"
@@ -113,12 +118,15 @@ struct ConfigTests {
         }
     }
 
-    @Test("names that would be unsafe as filenames are rejected", arguments: [
-        "we b", "../etc", "a/b", "we$b",
-    ])
+    @Test(
+        "names that would be unsafe as filenames are rejected",
+        arguments: [
+            "we b", "../etc", "a/b", "we$b",
+        ])
     func badNames(_ name: String) {
         #expect(throws: ConfigError.self) {
-            try parse("""
+            try parse(
+                """
                 [[service]]
                 name = "\(name)"
                 cwd = "/tmp"
@@ -130,7 +138,8 @@ struct ConfigTests {
     @Test("empty command is rejected")
     func emptyCommand() {
         #expect(throws: ConfigError.self) {
-            try parse("""
+            try parse(
+                """
                 [[service]]
                 name = "web"
                 cwd = "/tmp"
@@ -142,7 +151,8 @@ struct ConfigTests {
     @Test("a relative cwd is rejected rather than silently resolved")
     func relativeCwd() {
         #expect(throws: ConfigError.self) {
-            try parse("""
+            try parse(
+                """
                 [[service]]
                 name = "web"
                 cwd = "code/foo"
@@ -158,7 +168,8 @@ struct ConfigTests {
 
     @Test("health falls back to the service port")
     func healthInheritsPort() throws {
-        let config = try parse("""
+        let config = try parse(
+            """
             [[service]]
             name = "web"
             cwd = "/tmp"
@@ -175,7 +186,8 @@ struct ConfigTests {
     @Test("health with no port anywhere is an error")
     func healthNeedsAPort() {
         #expect(throws: ConfigError.self) {
-            try parse("""
+            try parse(
+                """
                 [[service]]
                 name = "web"
                 cwd = "/tmp"
@@ -188,7 +200,8 @@ struct ConfigTests {
     @Test("unknown health type is an error")
     func badHealthType() {
         #expect(throws: ConfigError.self) {
-            try parse("""
+            try parse(
+                """
                 [[service]]
                 name = "web"
                 cwd = "/tmp"
@@ -201,7 +214,8 @@ struct ConfigTests {
     @Test("out-of-range port is an error")
     func badPort() {
         #expect(throws: ConfigError.self) {
-            try parse("""
+            try parse(
+                """
                 [[service]]
                 name = "web"
                 cwd = "/tmp"
@@ -225,7 +239,8 @@ struct ConfigTests {
 
     @Test("env and autostart round-trip")
     func envAndAutostart() throws {
-        let config = try parse("""
+        let config = try parse(
+            """
             [[service]]
             name = "web"
             cwd = "/tmp"
@@ -241,20 +256,15 @@ struct ConfigTests {
 
     @Test("the shipped starter template is itself valid once uncommented")
     func templateIsValid() throws {
-        // Every [[service]] in the template is commented out, so parsing it as-is must
-        // fail for exactly one reason: there are no services.
         #expect(throws: ConfigError.self) {
             try ConfigLoader.parse(Data(Template.starter.utf8))
         }
-        // Uncommenting must produce a working config — this catches typos in the
-        // example a user is most likely to start from.
         let uncommented = Template.starter
             .split(separator: "\n", omittingEmptySubsequences: false)
             .map { line -> String in
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
                 guard trimmed.hasPrefix("# ") else { return String(line) }
                 let body = trimmed.dropFirst(2)
-                // Only uncomment config lines, not prose.
                 if body.contains("=") || body.hasPrefix("[[") { return String(body) }
                 return String(line)
             }

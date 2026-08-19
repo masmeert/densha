@@ -6,11 +6,9 @@ let package = Package(
     platforms: [.macOS(.v26)],
     products: [
         .library(name: "DenshaCore", targets: ["DenshaCore"]),
+        .library(name: "DenshaUI", targets: ["DenshaUI"]),
         .executable(name: "denshad", targets: ["denshad"]),
         .executable(name: "densha", targets: ["denshacli"]),
-        // Named DenshaApp, not Densha: SwiftPM writes every product into the same
-        // .build/<config>/ directory, and `Densha` would collide with `densha` on a
-        // case-insensitive APFS volume. build-app.sh renames it inside the bundle.
         .executable(name: "DenshaApp", targets: ["DenshaApp"]),
     ],
     dependencies: [
@@ -31,7 +29,8 @@ let package = Package(
             ],
             path: "Sources/densha"
         ),
-        .executableTarget(name: "DenshaApp", dependencies: ["DenshaCore"]),
+        .target(name: "DenshaUI", dependencies: ["DenshaCore"]),
+        .executableTarget(name: "DenshaApp", dependencies: ["DenshaUI"]),
         .testTarget(name: "DenshaCoreTests", dependencies: ["DenshaCore"]),
     ]
 )

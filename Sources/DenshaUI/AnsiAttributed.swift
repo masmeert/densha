@@ -1,11 +1,6 @@
 import DenshaCore
 import SwiftUI
 
-/// Turns a line of terminal output into styled text.
-///
-/// Only SGR (colour and weight) is interpreted; cursor movement, erases and OSC
-/// sequences are discarded, because a log view is an append-only transcript rather
-/// than an addressable screen.
 enum AnsiRenderer {
     struct Style: Equatable {
         var foreground: Color?
@@ -37,7 +32,6 @@ enum AnsiRenderer {
             run.foregroundColor = style.foreground ?? base
             if let background = style.background { run.backgroundColor = background }
             if style.underline { run.underlineStyle = .single }
-            // Dim is rendered as reduced opacity, which is what terminals approximate.
             if style.dim, style.foreground == nil { run.foregroundColor = base.opacity(0.6) }
             var font = Font.system(.body, design: .monospaced)
             if style.bold { font = font.bold() }
@@ -57,7 +51,6 @@ enum AnsiRenderer {
 
             let next = scalars[index + 1]
             if next == "[" {
-                // CSI: collect parameters up to the final byte.
                 var cursor = index + 2
                 var parameters = String()
                 var final: Character?
@@ -75,13 +68,11 @@ enum AnsiRenderer {
                     flush()
                     apply(parameters, to: &style)
                 }
-                // Every other CSI (cursor moves, erases) is simply dropped.
                 index = cursor
                 continue
             }
 
             if next == "]" || next == "P" || next == "X" || next == "^" || next == "_" {
-                // OSC and friends run until BEL or ST.
                 var cursor = index + 2
                 while cursor < scalars.count {
                     if scalars[cursor] == "\u{07}" {
@@ -89,7 +80,8 @@ enum AnsiRenderer {
                         break
                     }
                     if scalars[cursor] == "\u{1B}" {
-                        cursor += (cursor + 1 < scalars.count && scalars[cursor + 1] == "\\") ? 2 : 1
+                        cursor +=
+                            (cursor + 1 < scalars.count && scalars[cursor + 1] == "\\") ? 2 : 1
                         break
                     }
                     cursor += 1
@@ -98,7 +90,6 @@ enum AnsiRenderer {
                 continue
             }
 
-            // Unknown two-character escape.
             index += 2
         }
 
@@ -107,7 +98,6 @@ enum AnsiRenderer {
     }
 
     private static func apply(_ parameters: String, to style: inout Style) {
-        // A bare ESC[m means reset, same as ESC[0m.
         let codes =
             parameters.isEmpty
             ? [0]
@@ -124,7 +114,9 @@ enum AnsiRenderer {
             case 2: style.dim = true
             case 3: style.italic = true
             case 4: style.underline = true
-            case 22: style.bold = false; style.dim = false
+            case 22:
+                style.bold = false
+                style.dim = false
             case 23: style.italic = false
             case 24: style.underline = false
             case 30...37: style.foreground = palette(code - 30)
@@ -134,8 +126,10 @@ enum AnsiRenderer {
             case 90...97: style.foreground = palette(code - 90 + 8)
             case 100...107: style.background = palette(code - 100 + 8)
             case 38, 48:
-                // Extended colour: 5;n for the 256-colour cube, 2;r;g;b for truecolor.
-                guard i + 1 < codes.count else { i = codes.count; break }
+                guard i + 1 < codes.count else {
+                    i = codes.count
+                    break
+                }
                 let mode = codes[i + 1]
                 if mode == 5, i + 2 < codes.count {
                     let color = xterm256(codes[i + 2])
@@ -157,8 +151,6 @@ enum AnsiRenderer {
         }
     }
 
-    /// The 16 base colours, picked to stay legible on both light and dark backgrounds
-    /// rather than matching any one terminal theme exactly.
     private static func palette(_ index: Int) -> Color {
         switch index {
         case 0: return Color(.sRGB, red: 0.20, green: 0.20, blue: 0.22, opacity: 1)
@@ -180,7 +172,6 @@ enum AnsiRenderer {
         }
     }
 
-    /// Standard xterm 256-colour layout: 16 base, a 6×6×6 cube, then 24 greys.
     private static func xterm256(_ value: Int) -> Color {
         switch value {
         case 0..<16:

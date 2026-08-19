@@ -1,0 +1,3 @@
+[tools]
+python = "3.13.5"
+"pipx:pre-commit" = "4.2.0"

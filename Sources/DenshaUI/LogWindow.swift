@@ -1,11 +1,13 @@
 import DenshaCore
 import SwiftUI
 
-enum LogWindowID {
-    static let value = "densha.logs"
+public enum LogWindowID {
+    public static let value = "densha.logs"
 }
 
-struct LogWindow: View {
+public struct LogWindow: View {
+    public init() {}
+
     @Environment(AppModel.self) private var model
 
     @State private var followers: [String: LogFollower] = [:]
@@ -18,14 +20,15 @@ struct LogWindow: View {
         model.selectedLogService ?? model.services.first?.name
     }
 
-    var body: some View {
+    public var body: some View {
         VStack(spacing: 0) {
             toolbar
             Divider()
             if let name = selected, let follower = followers[name] {
                 transcript(follower)
                 Divider()
-                inputBar(name: name, running: model.services.first { $0.name == name }?.isLive ?? false)
+                inputBar(
+                    name: name, running: model.services.first { $0.name == name }?.isLive ?? false)
             } else {
                 ContentUnavailableView(
                     "No service selected", systemImage: "list.bullet.rectangle",
@@ -43,14 +46,15 @@ struct LogWindow: View {
         }
     }
 
-    // MARK: - Toolbar
-
     private var toolbar: some View {
         HStack(spacing: 8) {
-            Picker("", selection: Binding(
-                get: { selected ?? "" },
-                set: { model.selectedLogService = $0 }
-            )) {
+            Picker(
+                "",
+                selection: Binding(
+                    get: { selected ?? "" },
+                    set: { model.selectedLogService = $0 }
+                )
+            ) {
                 ForEach(model.services) { service in
                     Text(service.name).tag(service.name)
                 }
@@ -87,8 +91,6 @@ struct LogWindow: View {
         .padding(.vertical, 7)
     }
 
-    // MARK: - Transcript
-
     private func transcript(_ follower: LogFollower) -> some View {
         let lines = filtered(follower.lines)
         return ScrollViewReader { proxy in
@@ -117,7 +119,6 @@ struct LogWindow: View {
                         .padding(.vertical, 1)
                         .id(line.seq)
                     }
-                    // Anchor for scroll-to-bottom that exists even when empty.
                     Color.clear.frame(height: 1).id(bottomAnchor)
                 }
                 .padding(.vertical, 4)
@@ -125,8 +126,6 @@ struct LogWindow: View {
             .background(Color(nsColor: .textBackgroundColor))
             .onChange(of: lines.last?.seq) { _, _ in
                 guard following else { return }
-                // No animation: output can arrive many times a second, and animating
-                // each arrival would make the view feel busy and lag behind.
                 proxy.scrollTo(bottomAnchor, anchor: .bottom)
             }
             .onChange(of: following) { _, isFollowing in
@@ -140,13 +139,10 @@ struct LogWindow: View {
     private func filtered(_ lines: [LogLine]) -> [LogLine] {
         let trimmed = query.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return lines }
-        // Match against stripped text so a search never has to account for escapes.
         return lines.filter {
             Ansi.strip($0.text).localizedCaseInsensitiveContains(trimmed)
         }
     }
-
-    // MARK: - Input
 
     private func inputBar(name: String, running: Bool) -> some View {
         HStack(spacing: 6) {
@@ -164,11 +160,11 @@ struct LogWindow: View {
             .disabled(!running)
             .onSubmit {
                 guard !keysToSend.isEmpty else { return }
-                model.send(keysToSend + "\n", to: name)
+                model.send(keysToSend, to: name)
                 keysToSend = ""
             }
             Button("Send") {
-                model.send(keysToSend + "\n", to: name)
+                model.send(keysToSend, to: name)
                 keysToSend = ""
             }
             .controlSize(.small)
@@ -196,3 +192,9 @@ struct LogWindow: View {
         formatter.string(from: Date(timeIntervalSince1970: ts))
     }
 }
+
+#if DEBUG
+    #Preview("Log window") {
+        LogWindow().environment(AppModel.preview())
+    }
+#endif

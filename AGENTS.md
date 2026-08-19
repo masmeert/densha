@@ -3,9 +3,12 @@
 ## Code style
 
 - No comments unless asked.
-- No single-use variables/constants — inline them. This includes Tailwind classes: always write them inline in `className` or `cn`.
 - Check shared helpers/utils before writing a local one; don't create a helper for something that can stay inline.
-- Named functions: use `function foo() {}`, not `const foo = () => {}`.
+
+## Commit style
+
+- Use conventional commit.
+- Never add description to commits unless asked.
 
 ## Naming things
 
@@ -23,9 +26,3 @@
 
 - Never edit `CLAUDE.md`, `AGENTS.md`, or any other agent instruction file unless explicitly asked to.
 
-## Skills
-
-Tracked in `skills-lock.json` (repo root, `apps/native/`); `.claude/skills/` itself is gitignored.
-
-- Restore: `npx skills experimental_install` from that directory.
-- It writes to `.agents/skills/`, which Claude Code doesn't read — `cp -r .agents/skills/. .claude/skills/` after.

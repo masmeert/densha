@@ -2,18 +2,12 @@ import Darwin
 import DenshaCore
 import Foundation
 
-/// Everything that can happen to a child, funnelled through one ordered stream.
-/// Both dispatch sources for a service share a single serial queue, so the relative
-/// order of "here is more output" and "it exited" is preserved — otherwise the last
-/// few lines of a crash could arrive after the exit was already reported.
 enum ProcessEvent: Sendable {
     case output(Data)
     case eof
     case exited(status: Int32)
 }
 
-/// Breaks the retain cycle a dispatch source's own handler would otherwise create
-/// by referencing the source it belongs to.
 final class SourceHolder: @unchecked Sendable {
     var read: DispatchSourceRead?
     var exit: DispatchSourceProcess?
@@ -26,8 +20,6 @@ final class SourceHolder: @unchecked Sendable {
     }
 }
 
-/// Live bookkeeping for one spawned service. Only ever touched from inside the
-/// Supervisor actor.
 final class RunningProcess {
     let pid: pid_t
     let master: Int32
@@ -37,13 +29,9 @@ final class RunningProcess {
     var pumpTask: Task<Void, Never>?
     var healthTask: Task<Void, Never>?
     var killTask: Task<Void, Never>?
-    /// Distinguishes "we asked it to stop" from "it died on its own", which is the
-    /// difference between the `stopped` and `failed` states.
     var stopRequested = false
     var reaped = false
     var sawEOF = false
-    /// Whether a health probe has ever succeeded. Before the first success we cannot
-    /// tell "still booting" from "broken"; after it, a failure is a real regression.
     var everHealthy = false
     var healthFailures = 0
 
@@ -57,7 +45,6 @@ final class RunningProcess {
 struct Subscriber {
     let id: UUID
     let wantsStatus: Bool
-    /// Service name to follow, or "*" for all. nil means no log interest.
     let logFilter: String?
     let continuation: AsyncStream<Event>.Continuation
 }
@@ -73,9 +60,6 @@ actor Supervisor {
     private var idleFlushTask: Task<Void, Never>?
 
     init(config: Config) {
-        // Cannot call adoptConfig() from an actor's init, and would not want to: at
-        // init there is no prior state to reconcile against, which is all that
-        // function exists to do.
         self.config = config
         self.order = config.services.map(\.name)
         for svc in config.services {
@@ -88,8 +72,6 @@ actor Supervisor {
         }
     }
 
-    // MARK: - Config
-
     private func adoptConfig(_ new: Config) {
         config = new
         order = new.services.map(\.name)
@@ -98,7 +80,6 @@ actor Supervisor {
                 stores[svc.name] = LogStore(name: svc.name, fileURL: Paths.logFile(for: svc.name))
             }
             if var existing = status[svc.name] {
-                // Keep live runtime facts, refresh the spec-derived ones.
                 existing.command = svc.command
                 existing.cwd = svc.cwd
                 existing.port = svc.port
@@ -111,8 +92,6 @@ actor Supervisor {
                 )
             }
         }
-        // Drop bookkeeping for services deleted from the file — unless still running,
-        // in which case they stay visible so they can be stopped deliberately.
         let known = Set(order)
         for name in status.keys where !known.contains(name) {
             if procs[name] == nil {
@@ -133,9 +112,6 @@ actor Supervisor {
 
     func warnings() -> [String] { config.warnings }
 
-    // MARK: - Lifecycle
-
-    /// Starts services flagged autostart, and begins the idle-flush ticker.
     func bootstrap() async {
         startIdleFlusher()
         let autos = config.services.filter(\.autostart).map(\.name)
@@ -148,12 +124,8 @@ actor Supervisor {
         order.compactMap { status[$0] }
     }
 
-    /// Returns a per-service error message for each service that failed to start.
     func start(names: [String]?) async -> [String: String] {
         var errors: [String: String] = [:]
-        // If the user names something we have not seen, the likeliest explanation is
-        // that they just added it to services.toml. Re-read once before complaining,
-        // so editing the file and starting the service is a single step.
         if let names, names.contains(where: { config.service(named: $0) == nil }) {
             _ = try? reload()
         }
@@ -163,7 +135,7 @@ actor Supervisor {
                 continue
             }
             if let existing = procs[name], !existing.reaped {
-                continue  // already live; start is idempotent
+                continue
             }
             do {
                 try spawn(svc)
@@ -174,10 +146,9 @@ actor Supervisor {
                 s.pid = nil
                 s.pgid = nil
                 status[name] = s
-                // Surface the reason where the user will look for it.
                 if let store = stores[name] {
                     let line = store.ingest(Data("densha: \(error)\r\n".utf8))
-                    line.forEach { broadcastLog(name: name, line: $0) }
+                    for entry in line { broadcastLog(name: name, line: entry) }
                 }
             }
         }
@@ -194,7 +165,6 @@ actor Supervisor {
             of: ProcessEvent.self, bufferingPolicy: .unbounded)
         proc.continuation = continuation
 
-        // One serial queue for both sources keeps output and exit ordered.
         let queue = DispatchQueue(label: "densha.svc.\(svc.name)")
         let holder = proc.holder
 
@@ -220,8 +190,6 @@ actor Supervisor {
                 case EAGAIN:
                     return
                 default:
-                    // On Darwin a pty master returns EIO once every slave fd is closed,
-                    // which is this fd's version of end-of-file.
                     cont.yield(.eof)
                     holder.read?.cancel()
                     holder.read = nil
@@ -237,11 +205,13 @@ actor Supervisor {
             guard let cont = proc?.continuation else { return }
             var raw: Int32 = 0
             let waited = waitpid(child.pid, &raw, WNOHANG)
-            // Drain whatever the child wrote just before dying, so no output is lost.
             var buffer = [UInt8](repeating: 0, count: 32 * 1024)
             while true {
                 let n = read(child.master, &buffer, buffer.count)
-                if n > 0 { cont.yield(.output(Data(buffer[0..<n]))); continue }
+                if n > 0 {
+                    cont.yield(.output(Data(buffer[0..<n])))
+                    continue
+                }
                 break
             }
             cont.yield(.exited(status: waited == child.pid ? raw : 0))
@@ -255,7 +225,6 @@ actor Supervisor {
         var s = status[svc.name] ?? ServiceStatus(name: svc.name, state: .starting)
         s.state = .starting
         s.pid = child.pid
-        // SETSID guarantees the child leads its own group, so pgid == pid.
         s.pgid = child.pid
         s.port = svc.port
         s.startedAt = now
@@ -280,8 +249,6 @@ actor Supervisor {
                 await self?.runHealthLoop(service: svc.name, health: health)
             }
         } else {
-            // With no probe configured, "spawned and not dead" is the best signal we
-            // have, so promote out of `starting` after a moment.
             Task { [weak self] in
                 try? await Task.sleep(for: .milliseconds(400))
                 await self?.promoteIfStillStarting(svc.name, pid: child.pid)
@@ -297,18 +264,16 @@ actor Supervisor {
         broadcastStatus()
     }
 
-    // MARK: - Event handling
-
     private func handle(_ event: ProcessEvent, service name: String) {
         switch event {
-        case let .output(data):
+        case .output(let data):
             guard let store = stores[name] else { return }
             for line in store.ingest(data) {
                 broadcastLog(name: name, line: line)
             }
         case .eof:
             procs[name]?.sawEOF = true
-        case let .exited(raw):
+        case .exited(let raw):
             finalize(name: name, raw: raw)
         }
     }
@@ -358,8 +323,6 @@ actor Supervisor {
         }
     }
 
-    // MARK: - Stopping
-
     func stop(names: [String]?) async -> [String: String] {
         var errors: [String: String] = [:]
         let targets = resolve(names)
@@ -381,8 +344,6 @@ actor Supervisor {
     private func stopOne(_ name: String) async {
         guard let proc = procs[name], !proc.reaped else { return }
         let timeout = config.service(named: name)?.stopTimeout ?? Defaults.stopTimeout
-        // Bind pid locally: RunningProcess is not Sendable, so the escaping Task below
-        // must not capture it.
         let pid = proc.pid
         proc.stopRequested = true
 
@@ -392,8 +353,6 @@ actor Supervisor {
             broadcastStatus()
         }
 
-        // Signal the whole process group, not just the shell we spawned. This is the
-        // difference between releasing :3000 and orphaning a node process that holds it.
         kill(-pid, SIGTERM)
 
         proc.killTask = Task { [weak self] in
@@ -406,7 +365,6 @@ actor Supervisor {
     }
 
     private func forceKill(_ name: String, pid: pid_t) {
-        // Only if this is still the same process — never signal a recycled pid.
         guard let proc = procs[name], proc.pid == pid, !proc.reaped else { return }
         kill(-pid, SIGKILL)
     }
@@ -421,8 +379,6 @@ actor Supervisor {
     func restart(names: [String]?) async -> [String: String] {
         let targets = resolve(names)
         _ = await stop(names: targets)
-        // A brief pause gives the OS time to release listening sockets, so the
-        // restarted process does not hit EADDRINUSE on its own port.
         let grace = targets.compactMap { config.service(named: $0)?.restartGrace }.max()
         if let grace, grace > 0 {
             try? await Task.sleep(for: .milliseconds(grace))
@@ -430,13 +386,10 @@ actor Supervisor {
         return await start(names: targets)
     }
 
-    /// Stops everything, for daemon shutdown.
     func stopAll() async {
         _ = await stop(names: nil)
         idleFlushTask?.cancel()
     }
-
-    // MARK: - Health
 
     private func runHealthLoop(service name: String, health: ResolvedHealth) async {
         while !Task.isCancelled {
@@ -449,10 +402,6 @@ actor Supervisor {
         }
     }
 
-    /// Consecutive failed probes tolerated before a service that has never been
-    /// healthy is called unhealthy rather than still starting. At the default 2s
-    /// interval this is a 20s grace period — long enough for a dev server to bind,
-    /// short enough that a broken one does not pulse amber forever.
     private static let healthGraceProbes = 10
 
     private func applyHealth(name: String, pid: pid_t, passing: Bool) {
@@ -466,10 +415,6 @@ actor Supervisor {
             newState = .running
         } else {
             proc.healthFailures += 1
-            // A service that was healthy and now is not has definitely regressed. One
-            // that has never answered may simply still be booting — `expo run:ios`
-            // spends a long time in a native build — so it keeps the benefit of the
-            // doubt, but not indefinitely.
             newState =
                 (proc.everHealthy || proc.healthFailures >= Self.healthGraceProbes)
                 ? .unhealthy : .starting
@@ -483,8 +428,6 @@ actor Supervisor {
         broadcastStatus()
     }
 
-    // MARK: - Logs and input
-
     func logLines(name: String, tail: Int?) throws -> [LogLine] {
         guard let store = stores[name] else {
             throw DenshaError.noSuchService(name)
@@ -492,8 +435,6 @@ actor Supervisor {
         return store.tail(tail)
     }
 
-    /// Writes to the service's PTY master, which is how Expo's `i`/`r`/`j` and any
-    /// other interactive key reaches the process.
     func sendInput(name: String, data: String) throws {
         guard let proc = procs[name], !proc.reaped else {
             throw DenshaError.serviceNotRunning(name)
@@ -515,8 +456,6 @@ actor Supervisor {
         }
     }
 
-    /// Pushes out partial lines that have been sitting without a newline, so prompts
-    /// and progress indicators appear instead of hanging invisibly in the buffer.
     private func startIdleFlusher() {
         idleFlushTask?.cancel()
         idleFlushTask = Task { [weak self] in
@@ -535,12 +474,8 @@ actor Supervisor {
         }
     }
 
-    // MARK: - Subscriptions
-
     func subscribe(status wantsStatus: Bool, logFilter: String?) -> (UUID, AsyncStream<Event>) {
         let id = UUID()
-        // makeStream rather than the closure-taking initialiser: that closure is
-        // `sending`, so mutating actor state from inside it is a data race.
         let (stream, continuation) = AsyncStream<Event>.makeStream(
             of: Event.self, bufferingPolicy: .bufferingNewest(4096))
         subscribers[id] = Subscriber(
@@ -569,8 +504,6 @@ actor Supervisor {
             sub.continuation.yield(Event(event: .log, name: name, line: line))
         }
     }
-
-    // MARK: - Helpers
 
     private func resolve(_ names: [String]?) -> [String] {
         guard let names, !names.isEmpty else { return order }

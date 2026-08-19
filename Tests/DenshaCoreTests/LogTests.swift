@@ -18,14 +18,14 @@ struct RingBufferTests {
     @Test("keeps insertion order below capacity")
     func underCapacity() {
         var buffer = RingBuffer(capacity: 10)
-        (1...3).forEach { buffer.append(line($0)) }
+        for i in 1...3 { buffer.append(line(i)) }
         #expect(buffer.all.map(\.text) == ["line1", "line2", "line3"])
     }
 
     @Test("drops the oldest entries once full")
     func wrapAround() {
         var buffer = RingBuffer(capacity: 3)
-        (1...5).forEach { buffer.append(line($0)) }
+        for i in 1...5 { buffer.append(line(i)) }
         #expect(buffer.count == 3)
         #expect(buffer.all.map(\.text) == ["line3", "line4", "line5"])
     }
@@ -33,17 +33,16 @@ struct RingBufferTests {
     @Test("tail returns the newest n, oldest-first")
     func tail() {
         var buffer = RingBuffer(capacity: 100)
-        (1...10).forEach { buffer.append(line($0)) }
+        for i in 1...10 { buffer.append(line(i)) }
         #expect(buffer.tail(3).map(\.text) == ["line8", "line9", "line10"])
         #expect(buffer.tail(0).isEmpty)
-        // Asking for more than exists yields everything rather than padding or trapping.
         #expect(buffer.tail(999).count == 10)
     }
 
     @Test("survives many wraps without corrupting order")
     func manyWraps() {
         var buffer = RingBuffer(capacity: 8)
-        (1...1000).forEach { buffer.append(line($0)) }
+        for i in 1...1000 { buffer.append(line(i)) }
         #expect(buffer.count == 8)
         #expect(buffer.all.map(\.text) == (993...1000).map { "line\($0)" })
     }
@@ -67,8 +66,6 @@ struct CarriageReturnTests {
 
     @Test("only the final frame of a progress indicator survives")
     func progress() {
-        // This is the spinner case: without collapsing, one progress bar becomes
-        // thousands of log lines.
         #expect(collapse("\rProgress 10%\rProgress 50%\rProgress 100%") == "Progress 100%")
     }
 
@@ -109,7 +106,6 @@ struct LogStoreTests {
     @Test("a line split across two reads is reassembled, not truncated")
     func partialAcrossChunks() {
         let (store, _) = makeStore()
-        // A PTY read boundary can fall anywhere, including mid-word.
         #expect(store.ingest(Data("hel".utf8)).isEmpty)
         let lines = store.ingest(Data("lo\r\n".utf8))
         #expect(lines.map(\.text) == ["hello"])
@@ -118,11 +114,10 @@ struct LogStoreTests {
     @Test("an unterminated line is held back until flushed")
     func pendingFlush() {
         let (store, _) = makeStore()
-        // Prompts like "? Pick one" arrive with no newline; they must still surface.
         #expect(store.ingest(Data("? Overwrite".utf8)).isEmpty)
         let flushed = store.flushPending()
         #expect(flushed?.text == "? Overwrite")
-        #expect(store.flushPending() == nil)  // idempotent
+        #expect(store.flushPending() == nil)
     }
 
     @Test("sequence numbers are monotonic across flushes")
@@ -149,7 +144,6 @@ struct LogStoreTests {
         let (store, url) = makeStore()
         _ = store.ingest(Data("\u{1B}[32mgreen\u{1B}[0m\r\n".utf8))
         let onDisk = try Data(contentsOf: url)
-        // The file keeps colour so `densha logs` can replay it.
         #expect(onDisk == Data("\u{1B}[32mgreen\u{1B}[0m\r\n".utf8))
 
         let mode = try FileManager.default.attributesOfItem(atPath: url.path)[.posixPermissions]
@@ -168,7 +162,6 @@ struct LogStoreTests {
         for _ in 0..<10 {
             produced += store.ingest(Data(String(repeating: "x", count: 10).utf8))
         }
-        // Without the cap this would buffer 100 bytes with no line ever emitted.
         #expect(!produced.isEmpty)
         #expect(produced.allSatisfy { $0.text.count <= 40 })
     }

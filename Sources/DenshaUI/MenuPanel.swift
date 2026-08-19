@@ -1,11 +1,13 @@
 import DenshaCore
 import SwiftUI
 
-struct MenuPanel: View {
+public struct MenuPanel: View {
+    public init() {}
+
     @Environment(AppModel.self) private var model
     @Environment(\.openWindow) private var openWindow
 
-    var body: some View {
+    public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
             Divider().padding(.vertical, 4)
@@ -16,8 +18,6 @@ struct MenuPanel: View {
         .padding(.vertical, 6)
         .frame(width: 296)
     }
-
-    // MARK: - Header
 
     private var header: some View {
         HStack(spacing: 6) {
@@ -48,14 +48,12 @@ struct MenuPanel: View {
         .padding(.horizontal, 12)
     }
 
-    // MARK: - Body
-
     @ViewBuilder
     private var content: some View {
         switch model.link {
         case .connecting where model.services.isEmpty:
             notice("Connecting to denshad…", systemImage: "ellipsis.circle")
-        case let .failed(reason):
+        case .failed(let reason):
             notice(reason, systemImage: "exclamationmark.triangle", tint: .orange)
         default:
             if model.services.isEmpty {
@@ -114,7 +112,8 @@ struct MenuPanel: View {
         .padding(.vertical, 4)
     }
 
-    private func notice(_ text: String, systemImage: String, tint: Color = .secondary) -> some View {
+    private func notice(_ text: String, systemImage: String, tint: Color = .secondary) -> some View
+    {
         HStack(alignment: .top, spacing: 6) {
             Image(systemName: systemImage)
                 .font(.system(size: 11))
@@ -127,8 +126,6 @@ struct MenuPanel: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 2)
     }
-
-    // MARK: - Footer
 
     private var footer: some View {
         VStack(spacing: 2) {
@@ -153,17 +150,16 @@ struct MenuPanel: View {
         if let service {
             model.selectedLogService = service
         } else if model.selectedLogService == nil {
-            model.selectedLogService = model.services.first(where: \.isLive)?.name
+            model.selectedLogService =
+                model.services.first(where: \.isLive)?.name
                 ?? model.services.first?.name
         }
         openWindow(id: LogWindowID.value)
-        // An accessory app does not come forward on its own.
         NSApp.activate(ignoringOtherApps: true)
         MenuBarPanel.dismiss()
     }
 }
 
-/// Prominent paired action at the bottom of the panel.
 private struct FooterButton: View {
     let title: String
     let systemImage: String
@@ -194,7 +190,6 @@ private struct FooterButton: View {
     }
 }
 
-/// Full-width menu-like row.
 private struct FooterRow: View {
     let title: String
     let systemImage: String
@@ -225,3 +220,30 @@ private struct FooterRow: View {
         .animation(.easeOut(duration: 0.14), value: hovering)
     }
 }
+
+#if DEBUG
+    #Preview("Panel — mixed states") {
+        MenuPanel().environment(AppModel.preview())
+    }
+
+    #Preview("Panel — all stopped") {
+        MenuPanel().environment(
+            AppModel.preview(services: [Sample.worker, Sample.broken]))
+    }
+
+    #Preview("Panel — no services") {
+        MenuPanel().environment(AppModel.preview(services: []))
+    }
+
+    #Preview("Panel — daemon down") {
+        MenuPanel().environment(
+            AppModel.preview(services: [], link: .failed("denshad closed the connection")))
+    }
+
+    #Preview("Panel — config warning") {
+        MenuPanel().environment(
+            AppModel.preview(
+                warnings: ["service \"caisse\": cwd does not exist: /Users/you/work/gone"],
+                lastError: "api: cannot use cwd /nope: no such directory"))
+    }
+#endif

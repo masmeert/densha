@@ -1,9 +1,6 @@
 import Foundation
 
-/// ANSI escape-sequence handling shared between the CLI and the log window.
 public enum Ansi {
-    /// Removes every escape sequence, leaving plain text. Used when output is piped,
-    /// or when the user asks for --no-color.
     public static func strip(_ text: String) -> String {
         guard text.contains("\u{1B}") else { return text }
         var output = String()
@@ -20,12 +17,10 @@ public enum Ansi {
             guard let next = iterator.next() else { break }
             switch next {
             case "[":
-                // CSI: parameter and intermediate bytes, then one final byte 0x40–0x7E.
                 while let c = iterator.next() {
                     if let ascii = c.asciiValue, ascii >= 0x40, ascii <= 0x7E { break }
                 }
             case "]":
-                // OSC: runs until BEL or ST (ESC \).
                 while let c = iterator.next() {
                     if c == "\u{07}" { break }
                     if c == "\u{1B}" {
@@ -34,7 +29,6 @@ public enum Ansi {
                     }
                 }
             case "P", "X", "^", "_":
-                // DCS/SOS/PM/APC: also terminated by ST.
                 while let c = iterator.next() {
                     if c == "\u{1B}" {
                         if let after = iterator.next(), after != "\\" { pending = after }
@@ -42,15 +36,12 @@ public enum Ansi {
                     }
                 }
             default:
-                // Two-character escape; nothing to emit.
                 break
             }
         }
         return output
     }
 
-    /// Turns the backslash escapes a shell user would type into real control bytes, so
-    /// `densha send web '\n'` sends a newline rather than two characters.
     public static func unescape(_ text: String) -> String {
         guard text.contains("\\") else { return text }
         var output = String()

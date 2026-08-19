@@ -1,6 +1,6 @@
 import ArgumentParser
-import DenshaCore
 import Darwin
+import DenshaCore
 import Foundation
 
 @main
@@ -17,10 +17,6 @@ struct Densha: AsyncParsableCommand {
     )
 }
 
-// MARK: - Shared plumbing
-
-/// Names plus --all, so that a bare `densha stop` can never wipe out the whole stack
-/// by accident.
 struct TargetOptions: ParsableArguments {
     @Argument(help: "Service names. Omit and pass --all to target everything.")
     var names: [String] = []
@@ -38,8 +34,6 @@ struct TargetOptions: ParsableArguments {
 }
 
 enum Style {
-    /// Colour only when a human is looking; piping into a file or another program
-    /// should produce clean text.
     static let color = isatty(STDOUT_FILENO) == 1
 
     static func paint(_ text: String, _ code: String) -> String {
@@ -87,12 +81,14 @@ enum Style {
         return "\(seconds / 86400)d"
     }
 
-    /// Visible width, ignoring escape sequences, so padding survives colouring.
     static func pad(_ text: String, _ width: Int) -> String {
         var visible = 0
         var inEscape = false
         for ch in text {
-            if ch == "\u{1B}" { inEscape = true; continue }
+            if ch == "\u{1B}" {
+                inEscape = true
+                continue
+            }
             if inEscape {
                 if ch == "m" { inEscape = false }
                 continue
@@ -127,8 +123,6 @@ func printTable(_ services: [ServiceStatus]) {
     }
 }
 
-/// Signals a failure that is not the user's fault syntactically — the command was
-/// well-formed, the daemon just said no. ArgumentParser prints this and exits 1.
 struct RuntimeError: Error, CustomStringConvertible {
     let description: String
     init(_ description: String) { self.description = description }
@@ -140,8 +134,6 @@ func reportFailure(_ response: Response) throws {
     }
 }
 
-// MARK: - Commands
-
 struct Status: AsyncParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Show service status.")
 
@@ -149,7 +141,6 @@ struct Status: AsyncParsableCommand {
     var json = false
 
     func run() async throws {
-        // Reporting status must not start a daemon as a side effect.
         guard DaemonClient.isDaemonRunning() else {
             if json {
                 print(#"{"daemon":"stopped","services":[]}"#)
@@ -169,7 +160,8 @@ struct Status: AsyncParsableCommand {
             } else {
                 printTable(services)
                 for warning in response.warnings ?? [] {
-                    FileHandle.standardError.write(Data((Style.yellow("warning: ") + warning + "\n").utf8))
+                    FileHandle.standardError.write(
+                        Data((Style.yellow("warning: ") + warning + "\n").utf8))
                 }
             }
         }
@@ -235,7 +227,7 @@ struct Logs: AsyncParsableCommand {
 
             guard follow else { return }
             while let message = try client.nextMessage() {
-                if case let .event(event) = message, event.event == .log, let line = event.line {
+                if case .event(let event) = message, event.event == .log, let line = event.line {
                     emit(line)
                 }
             }
@@ -243,7 +235,6 @@ struct Logs: AsyncParsableCommand {
     }
 
     private func emit(_ line: LogLine) {
-        // Strip when asked, and also when piped: escape codes in a file are noise.
         let text = (noColor || !Style.color) ? Ansi.strip(line.text) : line.text
         print(text)
     }
@@ -319,7 +310,9 @@ struct Edit: AsyncParsableCommand {
         let editor = ProcessInfo.processInfo.environment["EDITOR"] ?? "vi"
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/sh")
-        process.arguments = ["-lc", "\(editor) \(url.path.replacingOccurrences(of: " ", with: "\\ "))"]
+        process.arguments = [
+            "-lc", "\(editor) \(url.path.replacingOccurrences(of: " ", with: "\\ "))",
+        ]
         try process.run()
         process.waitUntilExit()
 
@@ -385,8 +378,6 @@ struct DaemonStop: AsyncParsableCommand {
         guard DaemonClient.waitForDaemonExit() else {
             throw RuntimeError("denshad acknowledged shutdown but is still listening")
         }
-        // Densha.app keeps a daemon alive on purpose, so it will start a fresh one the
-        // moment this one exits. Saying a bare "stopped" would be a lie.
         usleep(700_000)
         if DaemonClient.isDaemonRunning() {
             print("stopped — but a new denshad is already running")
@@ -441,9 +432,13 @@ struct InstallCLI: AsyncParsableCommand {
         let link = try CLIInstaller.install(source: source)
         print("linked \(link) -> \(source)")
         if !ProcessInfo.processInfo.environment["PATH", default: ""]
-            .split(separator: ":").contains(where: { $0 == link.replacingOccurrences(of: "/densha", with: "") })
+            .split(separator: ":").contains(where: {
+                $0 == link.replacingOccurrences(of: "/densha", with: "")
+            })
         {
-            print("note: \(link.replacingOccurrences(of: "/densha", with: "")) is not on your PATH yet")
+            print(
+                "note: \(link.replacingOccurrences(of: "/densha", with: "")) is not on your PATH yet"
+            )
         }
     }
 }

@@ -2,13 +2,10 @@ import Darwin
 import DenshaCore
 import Foundation
 
-/// Keeps signal sources alive for the process lifetime; a DispatchSource that goes
-/// out of scope stops delivering.
 final class SignalHandlers {
     private var sources: [DispatchSourceSignal] = []
 
     func install(_ signalNumber: Int32, handler: @escaping @Sendable () -> Void) {
-        // The default disposition would terminate us before the source ever fires.
         signal(signalNumber, SIG_IGN)
         let source = DispatchSource.makeSignalSource(
             signal: signalNumber, queue: DispatchQueue.global())
@@ -23,8 +20,6 @@ struct Daemon {
     static func main() async {
         try? Paths.createDirectories()
 
-        // Exactly one daemon per user. Clients race to spawn one on demand, so losing
-        // this is an expected outcome, not an error.
         guard let lock = InstanceLock(path: Paths.lockFile) else {
             FileHandle.standardError.write(
                 Data("denshad: another instance already holds \(Paths.lockFile.path)\n".utf8))
@@ -60,12 +55,13 @@ struct Daemon {
         }
         handlers.install(SIGTERM, handler: shutdown)
         handlers.install(SIGINT, handler: shutdown)
-        // SIGHUP is the conventional "re-read your config" signal.
         handlers.install(SIGHUP) {
             Task {
                 do {
                     let warnings = try await supervisor.reload()
-                    log("reloaded config" + (warnings.isEmpty ? "" : "; \(warnings.count) warning(s)"))
+                    log(
+                        "reloaded config"
+                            + (warnings.isEmpty ? "" : "; \(warnings.count) warning(s)"))
                 } catch {
                     log("reload failed: \(error)")
                 }
@@ -74,15 +70,12 @@ struct Daemon {
 
         await supervisor.bootstrap()
 
-        // Keep `lock` and `handlers` alive for the process lifetime.
         withExtendedLifetime((lock, handlers)) {}
         while true {
             try? await Task.sleep(for: .seconds(3600))
         }
     }
 
-    /// When started by launchd or by the menubar app there is nowhere useful for
-    /// stdout to go, so it is pointed at a log file instead of being discarded.
     static func redirectOutputIfDetached() {
         guard isatty(STDOUT_FILENO) == 0 else { return }
         let path = Paths.daemonLog.path

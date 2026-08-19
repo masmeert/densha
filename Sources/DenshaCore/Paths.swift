@@ -1,7 +1,5 @@
 import Foundation
 
-/// Well-known filesystem locations. XDG-style layout: hand-edited config under
-/// `~/.config`, machine-managed runtime state under `~/.local/state`.
 public enum Paths {
     public static var home: URL {
         URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
@@ -26,8 +24,6 @@ public enum Paths {
     public static var lockFile: URL { stateDir.appendingPathComponent("denshad.lock") }
     public static var daemonLog: URL { stateDir.appendingPathComponent("denshad.log") }
 
-    /// Overridable so tests can run against a throwaway socket without touching
-    /// a real daemon the developer may have running.
     public static var socketFile: URL {
         if let override = ProcessInfo.processInfo.environment["DENSHA_SOCKET"], !override.isEmpty {
             return URL(fileURLWithPath: override)
@@ -45,8 +41,6 @@ public enum Paths {
         }
     }
 
-    /// `sockaddr_un.sun_path` is 104 bytes on Darwin. Fail loudly and early rather
-    /// than letting bind() truncate the path and bind somewhere surprising.
     public static let maxSocketPathLength = 103
 
     public static func validateSocketPath(_ url: URL) throws {
@@ -69,21 +63,21 @@ public enum DenshaError: Error, CustomStringConvertible, Sendable {
 
     public var description: String {
         switch self {
-        case let .socketPathTooLong(path, length):
+        case .socketPathTooLong(let path, let length):
             return "socket path is \(length) bytes, max is \(Paths.maxSocketPathLength): \(path)"
         case .daemonNotRunning:
             return "denshad is not running"
-        case let .daemonUnreachable(reason):
+        case .daemonUnreachable(let reason):
             return "cannot reach denshad: \(reason)"
         case .connectionClosed:
             return "connection closed by denshad"
-        case let .protocolViolation(detail):
+        case .protocolViolation(let detail):
             return "unexpected message from denshad: \(detail)"
-        case let .timedOut(what):
+        case .timedOut(let what):
             return "timed out waiting for \(what)"
-        case let .noSuchService(name):
+        case .noSuchService(let name):
             return "no such service: \(name)"
-        case let .serviceNotRunning(name):
+        case .serviceNotRunning(let name):
             return "\(name) is not running"
         }
     }

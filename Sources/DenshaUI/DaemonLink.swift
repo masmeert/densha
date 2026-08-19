@@ -15,11 +15,6 @@ enum LinkEvent: Sendable {
     case warnings([String])
 }
 
-/// Holds the app's long-lived `watch` connection to the daemon and reconnects on its
-/// own if the daemon is restarted or upgraded underneath us.
-///
-/// Reads block, so the loop lives on a dedicated Thread rather than the cooperative
-/// pool — parking a pool thread indefinitely could starve unrelated work.
 final class DaemonLink: @unchecked Sendable {
     private let lock = NSLock()
     private var stopping = false
@@ -48,8 +43,6 @@ final class DaemonLink: @unchecked Sendable {
         while !isStopping {
             continuation.yield(.state(.connecting))
             do {
-                // Spawns a daemon if none is up, so simply launching the app is enough
-                // to bring the stack's supervisor back.
                 let client = try DaemonClient.connect()
                 setClient(client)
 
@@ -61,13 +54,11 @@ final class DaemonLink: @unchecked Sendable {
 
                 while !isStopping, let message = try client.nextMessage() {
                     switch message {
-                    case let .event(event):
+                    case .event(let event):
                         if let services = event.services {
                             continuation.yield(.services(services))
                         }
                     case .response:
-                        // Commands go out on their own short-lived connections, so a
-                        // reply here is unexpected; ignoring it keeps the stream alive.
                         continue
                     }
                 }
@@ -80,7 +71,6 @@ final class DaemonLink: @unchecked Sendable {
                 continuation.yield(.state(.failed("\(error)")))
             }
 
-            // Back off so a daemon that refuses to start does not become a spin loop.
             let deadline = Date().addingTimeInterval(backoff)
             while !isStopping, Date() < deadline {
                 usleep(50_000)
@@ -108,19 +98,16 @@ final class DaemonLink: @unchecked Sendable {
         let current = client
         client = nil
         lock.unlock()
-        // Closing under the reader unblocks it so the loop can notice `stopping`.
         current?.close()
     }
 }
 
-/// One-shot commands. Each runs on its own connection so it can never race the
-/// persistent watch reader for a response.
 enum Commands {
     static func run(
         _ op: Op, names: [String]? = nil, name: String? = nil, data: String? = nil
-    ) async throws {
+    ) async throws -> Response {
         try await withCheckedThrowingContinuation {
-            (continuation: CheckedContinuation<Void, Error>) in
+            (continuation: CheckedContinuation<Response, Error>) in
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
                     let client = try DaemonClient.connect()
@@ -129,7 +116,7 @@ enum Commands {
                     if !response.ok {
                         throw DenshaError.daemonUnreachable(response.error ?? "command failed")
                     }
-                    continuation.resume()
+                    continuation.resume(returning: response)
                 } catch {
                     continuation.resume(throwing: error)
                 }

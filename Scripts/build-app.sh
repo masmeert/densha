@@ -1,6 +1,4 @@
 #!/bin/bash
-# Assembles Densha.app. SwiftPM cannot emit a bundle, so the executables it builds
-# are copied into a hand-made one.
 set -euo pipefail
 
 CONFIG="${1:-release}"
@@ -9,41 +7,57 @@ cd "$ROOT"
 
 APP="dist/Densha.app"
 MACOS="$APP/Contents/MacOS"
-# The helpers CANNOT live in Contents/MacOS: this volume is case-insensitive, so
-# `densha` and `Densha` are one file there and the CLI would overwrite the app.
 HELPERS="$APP/Contents/Helpers"
 
-echo "==> building ($CONFIG)"
-swift build -c "$CONFIG" --product DenshaApp
-swift build -c "$CONFIG" --product denshad
-swift build -c "$CONFIG" --product densha
+ARCHS=()
+if [ "${DENSHA_UNIVERSAL:-0}" = "1" ]; then
+    ARCHS=(--arch arm64 --arch x86_64)
+    echo "==> building ($CONFIG, universal)"
+else
+    echo "==> building ($CONFIG)"
+fi
 
-BIN="$(swift build -c "$CONFIG" --show-bin-path)"
+swift build -c "$CONFIG" "${ARCHS[@]+"${ARCHS[@]}"}" --product DenshaApp
+swift build -c "$CONFIG" "${ARCHS[@]+"${ARCHS[@]}"}" --product denshad
+swift build -c "$CONFIG" "${ARCHS[@]+"${ARCHS[@]}"}" --product densha
+
+BIN="$(swift build -c "$CONFIG" "${ARCHS[@]+"${ARCHS[@]}"}" --show-bin-path)"
 
 echo "==> assembling $APP"
 rm -rf "$APP"
 mkdir -p "$MACOS" "$HELPERS" "$APP/Contents/Resources"
 
-# The SwiftPM product is DenshaApp because `Densha` and `densha` would collide in the
-# build directory on a case-insensitive volume; the bundle wants the capitalised name.
 cp "$BIN/DenshaApp" "$MACOS/Densha"
-# Shipping these inside the bundle means the app never depends on PATH, and never
-# talks to a mismatched daemon left over from another install.
 cp "$BIN/denshad" "$HELPERS/denshad"
 cp "$BIN/densha" "$HELPERS/densha"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+cp Resources/Densha.icns "$APP/Contents/Resources/Densha.icns"
 
-# Ad-hoc signature: enough for local use, and required for a stable identity so
-# macOS does not re-prompt for permissions on every rebuild.
-echo "==> signing (ad-hoc)"
-codesign --force --deep --sign - "$APP" >/dev/null 2>&1 || {
-    echo "warning: codesign failed; the app will still run locally" >&2
-}
+if [ -n "${DENSHA_VERSION:-}" ]; then
+    plutil -replace CFBundleShortVersionString -string "$DENSHA_VERSION" "$APP/Contents/Info.plist"
+    plutil -replace CFBundleVersion -string "$DENSHA_VERSION" "$APP/Contents/Info.plist"
+    echo "==> version $DENSHA_VERSION"
+fi
 
-# Guard against the case-insensitivity trap ever returning: on a case-insensitive
-# volume, copying `densha` into Contents/MacOS would silently replace `Densha`.
-# Checked by inspecting the link table rather than by running it — the app is a GUI
-# binary that would never exit.
+IDENTITY="${DENSHA_SIGN_IDENTITY:--}"
+if [ "$IDENTITY" = "-" ]; then
+    echo "==> signing (ad-hoc)"
+    SIGN=(codesign --force --options runtime --sign -)
+else
+    echo "==> signing ($IDENTITY)"
+    SIGN=(codesign --force --options runtime --timestamp --sign "$IDENTITY")
+fi
+
+"${SIGN[@]}" "$HELPERS/denshad"
+"${SIGN[@]}" "$HELPERS/densha"
+"${SIGN[@]}" "$APP"
+
+echo "==> verifying"
+codesign --verify --strict --verbose=2 "$APP" 2>&1 | sed "s/^/    /"
+if [ "$IDENTITY" = "-" ]; then
+    echo "    ad-hoc: Gatekeeper will reject this on another Mac (fine for local use)"
+fi
+
 if ! otool -L "$MACOS/Densha" | grep -q SwiftUI; then
     echo "error: $MACOS/Densha does not link SwiftUI, so it is not the app binary" >&2
     exit 1

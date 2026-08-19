@@ -1,8 +1,6 @@
 import DenshaCore
 import SwiftUI
 
-/// Small square icon button with press feedback. A click must feel acknowledged
-/// immediately, before any daemon round-trip has completed.
 struct IconButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -11,7 +9,6 @@ struct IconButtonStyle: ButtonStyle {
                 RoundedRectangle(cornerRadius: 5, style: .continuous)
                     .fill(Color.primary.opacity(configuration.isPressed ? 0.14 : 0))
             )
-            // Subtle, not springy: this fires many times a day.
             .scaleEffect(configuration.isPressed ? 0.94 : 1)
             .animation(.easeOut(duration: 0.14), value: configuration.isPressed)
             .contentShape(Rectangle())
@@ -35,7 +32,6 @@ struct StatusDot: View {
         }
     }
 
-    /// Only in-between states pulse; a steady service must look steady.
     private var isTransitional: Bool { state == .starting || state == .stopping }
 
     var body: some View {
@@ -72,27 +68,34 @@ struct ServiceRow: View {
     @FocusState private var focused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// Actions are revealed on hover, but must also appear on keyboard focus —
-    /// otherwise they would be unreachable without a mouse.
     private var actionsVisible: Bool { hovering || focused || busy }
 
     var body: some View {
         HStack(spacing: 8) {
-            StatusDot(state: service.state, health: service.health, animate: !reduceMotion)
+            Button(action: onShowLogs) {
+                HStack(spacing: 8) {
+                    StatusDot(state: service.state, health: service.health, animate: !reduceMotion)
 
-            Text(service.name)
-                .font(.system(size: 13))
-                .foregroundStyle(service.isLive ? .primary : .secondary)
-                .lineLimit(1)
+                    Text(service.name)
+                        .font(.system(size: 13))
+                        .foregroundStyle(service.isLive ? .primary : .secondary)
+                        .lineLimit(1)
 
-            Spacer(minLength: 6)
+                    Spacer(minLength: 6)
 
-            if let port = service.port {
-                Text(":\(port)")
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(.tertiary)
-                    .monospacedDigit()
+                    if let port = service.port {
+                        Text(":\(port)")
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(.tertiary)
+                            .monospacedDigit()
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .help(helpText)
+            .accessibilityLabel("Open logs for \(service.name)")
 
             HStack(spacing: 2) {
                 Button(action: onRestart) {
@@ -126,11 +129,7 @@ struct ServiceRow: View {
                 .padding(.horizontal, 4)
         )
         .contentShape(Rectangle())
-        // The row itself opens logs; the buttons above handle lifecycle. One target,
-        // one meaning.
-        .onTapGesture(perform: onShowLogs)
         .onHover { hovering = $0 }
-        .help(helpText)
     }
 
     private var helpText: String {
@@ -145,3 +144,29 @@ struct ServiceRow: View {
         return parts.joined(separator: " — ")
     }
 }
+
+#if DEBUG
+    #Preview("Rows — every state") {
+        VStack(spacing: 1) {
+            ForEach(Sample.all) { service in
+                ServiceRow(
+                    service: service, busy: false,
+                    onToggle: {}, onRestart: {}, onShowLogs: {})
+            }
+        }
+        .frame(width: 296)
+        .padding(.vertical, 6)
+    }
+
+    #Preview("Dots") {
+        HStack(spacing: 14) {
+            ForEach(ServiceState.allCases, id: \.self) { state in
+                VStack(spacing: 6) {
+                    StatusDot(state: state, health: .none, animate: true)
+                    Text(state.rawValue).font(.system(size: 9)).foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding()
+    }
+#endif

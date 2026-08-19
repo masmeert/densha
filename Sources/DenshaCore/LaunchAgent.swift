@@ -1,7 +1,5 @@
 import Foundation
 
-/// Optional launchd integration, so the daemon (and any `autostart` services) come
-/// up at login without the menubar app being opened.
 public enum LaunchAgent {
     public static let label = "com.densha.denshad"
 
@@ -43,8 +41,6 @@ public enum LaunchAgent {
         """
     }
 
-    /// Resolves the daemon to reference from the plist. It must be an absolute,
-    /// stable path, because launchd has no PATH to speak of.
     public static func resolveDaemonPath() throws -> String {
         guard
             let path = DaemonClient.daemonCandidates().first(where: {
@@ -62,7 +58,6 @@ public enum LaunchAgent {
             at: plistURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         try plist(daemonPath: daemonPath).write(to: plistURL, atomically: true, encoding: .utf8)
 
-        // Unload any previous copy first, so reinstalling picks up a new path.
         _ = run("/bin/launchctl", ["bootout", "gui/\(getuid())/\(label)"])
         let result = run("/bin/launchctl", ["bootstrap", "gui/\(getuid())", plistURL.path])
         guard result.status == 0 else {
@@ -104,24 +99,21 @@ public enum LaunchAgent {
     }
 }
 
-/// Puts `densha` on PATH. Kept separate from the app bundle so the CLI keeps working
-/// after the app is moved, by pointing at whatever bundle installed it.
 public enum CLIInstaller {
-    public static let preferredDirectories = ["/usr/local/bin", Paths.home.appendingPathComponent(".local/bin").path]
+    public static let preferredDirectories = [
+        "/usr/local/bin", Paths.home.appendingPathComponent(".local/bin").path,
+    ]
 
     public static func currentExecutable() -> String {
         Bundle.main.executableURL?.resolvingSymlinksInPath().path
             ?? ProcessInfo.processInfo.arguments[0]
     }
 
-    /// Returns the link that was created, or throws with the exact sudo command to run
-    /// when the target directory is not writable.
     public static func install(source: String) throws -> String {
         for directory in preferredDirectories {
             var isDir: ObjCBool = false
             let exists = FileManager.default.fileExists(atPath: directory, isDirectory: &isDir)
             if !exists {
-                // ~/.local/bin is routinely absent; creating it is harmless.
                 guard directory.hasPrefix(Paths.home.path) else { continue }
                 try? FileManager.default.createDirectory(
                     atPath: directory, withIntermediateDirectories: true)

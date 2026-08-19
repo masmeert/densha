@@ -7,7 +7,6 @@ import Testing
 struct ProtocolTests {
     @Test("every frame is exactly one line, so newline framing cannot break")
     func framingIsSingleLine() throws {
-        // A log line containing a newline or control characters must not split a frame.
         let event = Event(
             event: .log, name: "web",
             line: LogLine(seq: 1, ts: 0, text: "a\nb\tc\u{1B}[32md\"e\\f"))
@@ -20,7 +19,7 @@ struct ProtocolTests {
     func discriminatesResponse() throws {
         let raw = Data(#"{"id":7,"ok":true}"#.utf8)
         let message = try Wire.decoder.decode(ServerMessage.self, from: raw)
-        guard case let .response(response) = message else {
+        guard case .response(let response) = message else {
             Issue.record("expected a response")
             return
         }
@@ -32,7 +31,7 @@ struct ProtocolTests {
     func discriminatesEvent() throws {
         let raw = Data(#"{"event":"status","services":[]}"#.utf8)
         let message = try Wire.decoder.decode(ServerMessage.self, from: raw)
-        guard case let .event(event) = message else {
+        guard case .event(let event) = message else {
             Issue.record("expected an event")
             return
         }
@@ -48,7 +47,6 @@ struct ProtocolTests {
 
     @Test("the hand-typeable request form works, as documented for nc")
     func handTypedRequest() throws {
-        // This exact line appears in the README; if it stops decoding, the docs lie.
         let raw = Data(#"{"id":1,"op":"status"}"#.utf8)
         let request = try Wire.decoder.decode(Request.self, from: raw)
         #expect(request.op == .status)
@@ -117,7 +115,6 @@ struct AnsiTests {
 
     @Test("OSC sequences terminated by BEL are removed")
     func oscBel() {
-        // Dev servers set the window title this way.
         #expect(Ansi.strip("\u{1B}]0;my title\u{07}after") == "after")
     }
 
@@ -150,7 +147,6 @@ struct AnsiTests {
 
     @Test("a bare Expo key is sent verbatim, with no newline added")
     func expoKeys() {
-        // `densha send mobile i` must behave exactly like pressing i.
         for key in ["i", "a", "r", "j"] {
             #expect(Ansi.unescape(key) == key)
         }
