@@ -98,6 +98,20 @@ if ! otool -L "$MACOS/Densha" | grep -q SwiftUI; then
     exit 1
 fi
 
+if [ "$CONFIG" = release ]; then
+    DSYM_DIR="dist/dSYMs"
+    rm -rf "$DSYM_DIR"
+    mkdir -p "$DSYM_DIR"
+    for product in DenshaApp denshad densha; do
+        if [ ! -d "$BIN/$product.dSYM" ]; then
+            echo "error: no $BIN/$product.dSYM to archive" >&2
+            exit 1
+        fi
+        cp -R "$BIN/$product.dSYM" "$DSYM_DIR/"
+    done
+    echo "==> staged dSYMs in $DSYM_DIR"
+fi
+
 echo
 echo "built $APP"
 echo

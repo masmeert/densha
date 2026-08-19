@@ -67,6 +67,9 @@ jobs:
       - name: Assemble app bundle
         run: make app-debug
 
+      - name: Launch smoke test
+        run: make smoke
+
       - name: Summarize
         if: ${{ always() }}
         run: |

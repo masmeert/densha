@@ -60,6 +60,7 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "build=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
           echo "asset=Densha-$VERSION-universal.zip" >> "$GITHUB_OUTPUT"
+          echo "dsym_asset=Densha-$VERSION-dSYMs.zip" >> "$GITHUB_OUTPUT"
 
       - name: Import signing certificate
         env:
@@ -101,11 +102,29 @@ jobs:
 
       - name: Check notary credentials
         env:
+          NOTARY_ASC_KEY_P8: ${{ secrets.NOTARY_ASC_KEY_P8 }}
+          NOTARY_ASC_KEY_ID: ${{ secrets.NOTARY_ASC_KEY_ID }}
+          NOTARY_ASC_ISSUER_ID: ${{ secrets.NOTARY_ASC_ISSUER_ID }}
           NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
           NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
           NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
         run: |
           set -euo pipefail
+          if [ -n "${NOTARY_ASC_KEY_P8:-}" ]; then
+            KEY="$RUNNER_TEMP/asc-key.p8"
+            ( umask 077; printf '%s' "$NOTARY_ASC_KEY_P8" | sed 's/\\n/\n/g' > "$KEY" )
+            if ! xcrun notarytool history --key "$KEY" \
+                --key-id "$NOTARY_ASC_KEY_ID" \
+                --issuer "$NOTARY_ASC_ISSUER_ID" > /dev/null 2>&1; then
+              echo "::error::Apple rejected the App Store Connect API key. Check" \
+                "NOTARY_ASC_KEY_ID, NOTARY_ASC_ISSUER_ID and NOTARY_ASC_KEY_P8."
+              rm -f "$KEY"
+              exit 1
+            fi
+            rm -f "$KEY"
+            echo "App Store Connect API key accepted"
+            exit 0
+          fi
           if ! xcrun notarytool history \
               --apple-id "$NOTARY_APPLE_ID" \
               --team-id "$NOTARY_TEAM_ID" \
@@ -121,6 +140,9 @@ jobs:
       - name: Build, sign, notarize and staple
         env:
           DENSHA_UNIVERSAL: "1"
+          NOTARY_ASC_KEY_P8: ${{ secrets.NOTARY_ASC_KEY_P8 }}
+          NOTARY_ASC_KEY_ID: ${{ secrets.NOTARY_ASC_KEY_ID }}
+          NOTARY_ASC_ISSUER_ID: ${{ secrets.NOTARY_ASC_ISSUER_ID }}
           NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
           NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
           NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
@@ -142,21 +164,29 @@ jobs:
           [ "$cli_version" = "${{ steps.version.outputs.version }}" ] \
             || { echo "densha --version reports $cli_version, expected the tag" >&2; exit 1; }
 
+      - name: Launch smoke test the signed bundle
+        run: make smoke
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
           ASSET: ${{ steps.version.outputs.asset }}
+          DSYM_ASSET: ${{ steps.version.outputs.dsym_asset }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
           mv dist/Densha.zip "dist/$ASSET"
+          if [ ! -f "dist/$DSYM_ASSET" ]; then
+            echo "missing dist/$DSYM_ASSET — dSYMs must ship with the release" >&2
+            exit 1
+          fi
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" "dist/$ASSET" --clobber
+            gh release upload "$GITHUB_REF_NAME" "dist/$ASSET" "dist/$DSYM_ASSET" --clobber
           else
             gh release create "$GITHUB_REF_NAME" \
               --title "Densha $VERSION" \
               --generate-notes \
-              "dist/$ASSET"
+              "dist/$ASSET" "dist/$DSYM_ASSET"
           fi
 
       - name: Remove signing keychain
