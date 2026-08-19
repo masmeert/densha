@@ -211,8 +211,10 @@ release:
 	grep -q 'version: "'"$$VERSION"'"' Sources/densha/CLI.swift \
 		|| { echo "failed to set the version in Sources/densha/CLI.swift"; exit 1; }; \
 	$(MAKE) --no-print-directory test; \
-	git add Sources/densha/CLI.swift; \
-	git commit -m "chore: release v$$VERSION"; \
+	if [ -n "$$(git status --porcelain Sources/densha/CLI.swift)" ]; then \
+		git add Sources/densha/CLI.swift; \
+		git commit -m "chore: release v$$VERSION"; \
+	fi; \
 	git tag "v$$VERSION"; \
 	git push origin main "v$$VERSION"; \
 	echo "pushed v$$VERSION — follow it with: gh run watch"

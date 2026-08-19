@@ -53,24 +53,24 @@ jobs:
 
           printf '%s' "$CERT_P12_BASE64" | base64 --decode > "$CERT"
 
-          if ! openssl pkcs12 -in "$CERT" -nokeys -passin env:CERT_PASSWORD -noout 2>/dev/null; then
-            echo "::error::APPLE_CERT_PASSWORD does not match APPLE_CERT_P12_BASE64." \
-              "A trailing newline is the usual cause — set it with 'gh secret set" \
-              "APPLE_CERT_PASSWORD' and paste at the prompt rather than piping echo."
-            exit 1
-          fi
-          if [ "$(openssl pkcs12 -in "$CERT" -nocerts -nodes -passin env:CERT_PASSWORD \
-              2>/dev/null | grep -c 'PRIVATE KEY')" -eq 0 ]; then
-            echo "::error::the .p12 contains no private key. Re-export from Keychain" \
-              "Access > login > My Certificates (not the Certificates category)."
-            exit 1
-          fi
-
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
           security set-keychain-settings -lut 3600 "$KEYCHAIN"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
-          security import "$CERT" -k "$KEYCHAIN" -P "$CERT_PASSWORD" \
-            -t cert -f pkcs12 -T /usr/bin/codesign -T /usr/bin/security
+          if ! security import "$CERT" -k "$KEYCHAIN" -P "$CERT_PASSWORD" \
+              -t cert -f pkcs12 -T /usr/bin/codesign -T /usr/bin/security; then
+            OSSL=/usr/bin/openssl
+            if ! "$OSSL" pkcs12 -in "$CERT" -nokeys -passin env:CERT_PASSWORD \
+                -noout 2>/dev/null; then
+              echo "::error::APPLE_CERT_PASSWORD does not match APPLE_CERT_P12_BASE64." \
+                "A trailing newline is the usual cause — set it with 'gh secret set" \
+                "APPLE_CERT_PASSWORD' and paste at the prompt rather than piping echo."
+            elif [ "$("$OSSL" pkcs12 -in "$CERT" -nocerts -nodes \
+                -passin env:CERT_PASSWORD 2>/dev/null | grep -c 'PRIVATE KEY')" -eq 0 ]; then
+              echo "::error::the .p12 contains no private key. Re-export from Keychain" \
+                "Access > login > My Certificates (not the Certificates category)."
+            fi
+            exit 1
+          fi
           security set-key-partition-list -S apple-tool:,apple:,codesign: \
             -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
           security list-keychains -d user -s "$KEYCHAIN" \
