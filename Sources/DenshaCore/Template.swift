@@ -31,9 +31,9 @@ public enum Template {
         # ignore_processes = ["OrbStack Helper"]
 
         # [[project]]
-        # name = "apmoove"
+        # name = "storefront"
         # # Services may give a cwd relative to this one, or inherit it entirely.
-        # cwd = "~/code/apmoove"
+        # cwd = "~/code/storefront"
         #
         #   [[project.service]]
         #   name = "web"
@@ -47,18 +47,18 @@ public enum Template {
         #
         #   [[project.service]]
         #   name = "api"
-        #   cwd = "../apmoove-api"
+        #   cwd = "../storefront-api"
         #   command = "go run ./cmd/api"
         #   port = 8080
         #   stop_timeout = 15
         #   health = { type = "http", port = 8080, path = "/healthz" }
 
-        # A second project is free to reuse port 3000 — `densha start caisse` stops
-        # whatever holds it first. Refer to these as caisse/web and apmoove/web.
+        # A second project is free to reuse port 3000 — `densha start warehouse` stops
+        # whatever holds it first. Refer to these as warehouse/web and storefront/web.
         #
         # [[project]]
-        # name = "caisse"
-        # cwd = "~/code/caisse"
+        # name = "warehouse"
+        # cwd = "~/code/warehouse"
         #
         #   [[project.service]]
         #   name = "web"

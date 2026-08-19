@@ -47,13 +47,13 @@ struct AppModelTests {
         daemon.continuation.yield(
             .services([
                 ServiceStatus(name: "postgres", state: .running, pid: 10, pgid: 10, port: 5432),
-                ServiceStatus(name: "apmoove/web", state: .stopped, port: 3000),
-                ServiceStatus(name: "apmoove/api", state: .running, pid: 11, pgid: 11),
-                ServiceStatus(name: "caisse/web", state: .stopped, port: 3000),
+                ServiceStatus(name: "storefront/web", state: .stopped, port: 3000),
+                ServiceStatus(name: "storefront/api", state: .running, pid: 11, pgid: 11),
+                ServiceStatus(name: "warehouse/web", state: .stopped, port: 3000),
             ]))
         await settle()
 
-        #expect(model.groups.map(\.project) == [nil, "apmoove", "caisse"])
+        #expect(model.groups.map(\.project) == [nil, "storefront", "warehouse"])
         #expect(model.groups.map(\.services.count) == [1, 2, 1])
         #expect(model.groups[1].anyLive)
         #expect(!model.groups[1].allLive)
@@ -69,8 +69,8 @@ struct AppModelTests {
         daemon.continuation.yield(
             .services([
                 ServiceStatus(name: "postgres", state: .stopped, port: 5432),
-                ServiceStatus(name: "apmoove/web", state: .stopped, port: 3000),
-                ServiceStatus(name: "apmoove/api", state: .stopped),
+                ServiceStatus(name: "storefront/web", state: .stopped, port: 3000),
+                ServiceStatus(name: "storefront/api", state: .stopped),
             ]))
         await settle()
 
@@ -78,7 +78,7 @@ struct AppModelTests {
         model.start(model.groups[0])
         await settle()
 
-        #expect(daemon.commands == [.start(names: ["apmoove"]), .start(names: ["postgres"])])
+        #expect(daemon.commands == [.start(names: ["storefront"]), .start(names: ["postgres"])])
     }
 
     @Test("service actions use typed daemon commands")

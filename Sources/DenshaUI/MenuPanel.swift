@@ -334,7 +334,7 @@ private struct FooterButton: View {
     #Preview("Panel — config warning") {
         MenuPanel().environment(
             AppModel.preview(
-                warnings: ["service \"caisse\": cwd does not exist: /Users/you/work/gone"],
+                warnings: ["service \"warehouse\": cwd does not exist: /Users/you/work/gone"],
                 lastError: "api: cannot use cwd /nope: no such directory"))
     }
 #endif

@@ -4,27 +4,27 @@
 
     enum Sample {
         static let web = ServiceStatus(
-            name: "apmoove/admin", state: .running, pid: 4211, pgid: 4211, port: 3000,
+            name: "storefront/admin", state: .running, pid: 4211, pgid: 4211, port: 3000,
             startedAt: Date().timeIntervalSince1970 - 184, health: .passing,
-            command: "npm run dev -w apps/admin", cwd: "/Users/you/work/apmoove")
+            command: "npm run dev -w apps/admin", cwd: "/Users/you/work/storefront")
 
         static let native = ServiceStatus(
-            name: "apmoove/native", state: .starting, pid: 4212, pgid: 4212, port: 8081,
+            name: "storefront/native", state: .starting, pid: 4212, pgid: 4212, port: 8081,
             startedAt: Date().timeIntervalSince1970 - 6, health: .pending,
-            command: "npm run dev -w apps/native", cwd: "/Users/you/work/apmoove")
+            command: "npm run dev -w apps/native", cwd: "/Users/you/work/storefront")
 
         static let api = ServiceStatus(
-            name: "apmoove/api", state: .unhealthy, pid: 4213, pgid: 4213, port: 5040,
+            name: "storefront/api", state: .unhealthy, pid: 4213, pgid: 4213, port: 5040,
             startedAt: Date().timeIntervalSince1970 - 42, health: .failing,
-            command: "dotnet run --project src/Api", cwd: "/Users/you/work/apmoove-api")
+            command: "dotnet run --project src/Api", cwd: "/Users/you/work/storefront-api")
 
         static let worker = ServiceStatus(
-            name: "apmoove/worker", state: .stopped, command: "npm run worker",
-            cwd: "/Users/you/work/apmoove")
+            name: "storefront/worker", state: .stopped, command: "npm run worker",
+            cwd: "/Users/you/work/storefront")
 
         static let otherWeb = ServiceStatus(
-            name: "caisse/web", state: .failed, port: 3000, exitCode: 1,
-            command: "pnpm dev", cwd: "/Users/you/work/caisse")
+            name: "warehouse/web", state: .failed, port: 3000, exitCode: 1,
+            command: "pnpm dev", cwd: "/Users/you/work/warehouse")
 
         static let postgres = ServiceStatus(
             name: "postgres", state: .running, pid: 4290, pgid: 4290, port: 5432,
@@ -35,7 +35,7 @@
 
         static let scannedPorts: [ScannedPort] = [
             ScannedPort(
-                port: 3000, pid: 4288, processName: "node", conflictsWith: "apmoove/admin"),
+                port: 3000, pid: 4288, processName: "node", conflictsWith: "storefront/admin"),
             ScannedPort(port: 5432, pid: 4290, processName: "postgres"),
             ScannedPort(port: 6379, pid: 4301, processName: "redis-server"),
             ScannedPort(port: 8787, pid: 4377, processName: "node"),

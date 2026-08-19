@@ -24,9 +24,9 @@ struct SupervisorTests {
     func projectNameTargetsItsServices() async {
         let supervisor = Supervisor(config: Config(services: twoProjects))
 
-        let targets = await supervisor.resolveTargets(["apmoove"])
+        let targets = await supervisor.resolveTargets(["storefront"])
 
-        #expect(targets.names == ["apmoove/web", "apmoove/api"])
+        #expect(targets.names == ["storefront/web", "storefront/api"])
         #expect(targets.errors.isEmpty)
     }
 
@@ -34,9 +34,9 @@ struct SupervisorTests {
     func qualifiedNameTargetsOneService() async {
         let supervisor = Supervisor(config: Config(services: twoProjects))
 
-        let targets = await supervisor.resolveTargets(["caisse/web"])
+        let targets = await supervisor.resolveTargets(["warehouse/web"])
 
-        #expect(targets.names == ["caisse/web"])
+        #expect(targets.names == ["warehouse/web"])
     }
 
     @Test("a bare name resolves when only one project defines it")
@@ -45,7 +45,7 @@ struct SupervisorTests {
 
         let targets = await supervisor.resolveTargets(["api"])
 
-        #expect(targets.names == ["apmoove/api"])
+        #expect(targets.names == ["storefront/api"])
         #expect(targets.errors.isEmpty)
     }
 
@@ -56,7 +56,7 @@ struct SupervisorTests {
         let targets = await supervisor.resolveTargets(["web"])
 
         #expect(targets.names.isEmpty)
-        #expect(targets.errors["web"] == "ambiguous — did you mean apmoove/web, caisse/web?")
+        #expect(targets.errors["web"] == "ambiguous — did you mean storefront/web, warehouse/web?")
     }
 
     @Test("an unknown target is named in the errors")
@@ -74,27 +74,27 @@ struct SupervisorTests {
 
         #expect(
             await supervisor.resolveTargets(nil).names == [
-                "apmoove/web", "apmoove/api", "caisse/web",
+                "storefront/web", "storefront/api", "warehouse/web",
             ])
         #expect(
-            await supervisor.resolveTargets(["apmoove", "apmoove/web"]).names
-                == ["apmoove/web", "apmoove/api"])
+            await supervisor.resolveTargets(["storefront", "storefront/web"]).names
+                == ["storefront/web", "storefront/api"])
     }
 
     @Test("starting a project stops whatever holds the ports it needs")
     func startingAProjectFreesItsPorts() async {
         let supervisor = Supervisor(config: Config(services: twoProjects))
 
-        _ = await supervisor.start(names: ["caisse"])
-        let squatter = await supervisor.snapshot().first { $0.name == "caisse/web" }
+        _ = await supervisor.start(names: ["warehouse"])
+        let squatter = await supervisor.snapshot().first { $0.name == "warehouse/web" }
         #expect(squatter?.isLive == true)
 
-        _ = await supervisor.start(names: ["apmoove"])
+        _ = await supervisor.start(names: ["storefront"])
         let after = await supervisor.snapshot()
 
-        #expect(after.first { $0.name == "caisse/web" }?.isLive == false)
-        #expect(after.first { $0.name == "apmoove/web" }?.isLive == true)
-        #expect(after.first { $0.name == "apmoove/api" }?.isLive == true)
+        #expect(after.first { $0.name == "warehouse/web" }?.isLive == false)
+        #expect(after.first { $0.name == "storefront/web" }?.isLive == true)
+        #expect(after.first { $0.name == "storefront/api" }?.isLive == true)
 
         await supervisor.stopAll()
     }
@@ -106,18 +106,18 @@ struct SupervisorTests {
         let errors = await supervisor.start(names: nil)
 
         #expect(
-            errors["caisse/web"]
-                == "port 3000 is also declared by apmoove/web — start one at a time")
-        #expect(await supervisor.snapshot().first { $0.name == "apmoove/web" }?.isLive == true)
+            errors["warehouse/web"]
+                == "port 3000 is also declared by storefront/web — start one at a time")
+        #expect(await supervisor.snapshot().first { $0.name == "storefront/web" }?.isLive == true)
 
         await supervisor.stopAll()
     }
 
     private var twoProjects: [ResolvedService] {
         [
-            service(name: "apmoove/web", port: 3000),
-            service(name: "apmoove/api", port: 8080),
-            service(name: "caisse/web", port: 3000),
+            service(name: "storefront/web", port: 3000),
+            service(name: "storefront/api", port: 8080),
+            service(name: "warehouse/web", port: 3000),
         ]
     }
 

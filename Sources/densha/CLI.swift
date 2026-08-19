@@ -243,7 +243,7 @@ struct Start: AsyncParsableCommand {
         discussion: """
             Projects that declare the same port — two Vite apps on 3000, say — are \
             mutually exclusive. Starting one stops whichever live service already \
-            holds a port it needs, so `densha start apmoove` is enough to switch \
+            holds a port it needs, so `densha start storefront` is enough to switch \
             projects.
             """)
     @OptionGroup var target: TargetOptions

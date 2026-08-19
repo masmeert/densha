@@ -331,7 +331,7 @@ struct ConfigTests {
         let config = try parse(
             """
             [[project]]
-            name = "apmoove"
+            name = "storefront"
             cwd = "/tmp"
 
               [[project.service]]
@@ -345,11 +345,11 @@ struct ConfigTests {
               command = "go run ./cmd/api"
             """)
 
-        #expect(config.services.map(\.name) == ["apmoove/web", "apmoove/api"])
-        #expect(config.service(named: "apmoove/web")?.cwd == "/tmp")
-        #expect(config.service(named: "apmoove/api")?.cwd == "/tmp/nested")
-        #expect(config.service(named: "apmoove/web")?.shortName == "web")
-        #expect(config.service(named: "apmoove/web")?.project == "apmoove")
+        #expect(config.services.map(\.name) == ["storefront/web", "storefront/api"])
+        #expect(config.service(named: "storefront/web")?.cwd == "/tmp")
+        #expect(config.service(named: "storefront/api")?.cwd == "/tmp/nested")
+        #expect(config.service(named: "storefront/web")?.shortName == "web")
+        #expect(config.service(named: "storefront/web")?.project == "storefront")
     }
 
     @Test("two projects may declare the same port without complaint")
@@ -357,7 +357,7 @@ struct ConfigTests {
         let config = try parse(
             """
             [[project]]
-            name = "apmoove"
+            name = "storefront"
             cwd = "/tmp"
 
               [[project.service]]
@@ -366,7 +366,7 @@ struct ConfigTests {
               port = 3000
 
             [[project]]
-            name = "caisse"
+            name = "warehouse"
             cwd = "/tmp"
 
               [[project.service]]
@@ -375,7 +375,7 @@ struct ConfigTests {
               port = 3000
             """)
 
-        #expect(config.services.map(\.name) == ["apmoove/web", "caisse/web"])
+        #expect(config.services.map(\.name) == ["storefront/web", "warehouse/web"])
         #expect(config.warnings.isEmpty)
     }
 
@@ -384,7 +384,7 @@ struct ConfigTests {
         let config = try parse(
             """
             [[project]]
-            name = "apmoove"
+            name = "storefront"
             cwd = "/tmp"
 
               [[project.service]]
@@ -400,7 +400,7 @@ struct ConfigTests {
 
         #expect(
             config.warnings == [
-                "services \"apmoove/web\" and \"apmoove/web-legacy\" both declare port 3000 "
+                "services \"storefront/web\" and \"storefront/web-legacy\" both declare port 3000 "
                     + "— only one of them can run at a time"
             ])
     }
@@ -424,7 +424,7 @@ struct ConfigTests {
             try parse(
                 """
                 [[project]]
-                name = "apmoove"
+                name = "storefront"
 
                   [[project.service]]
                   name = "web"
@@ -439,12 +439,12 @@ struct ConfigTests {
             try parse(
                 """
                 [[service]]
-                name = "apmoove"
+                name = "storefront"
                 cwd = "/tmp"
                 command = "pnpm dev"
 
                 [[project]]
-                name = "apmoove"
+                name = "storefront"
                 cwd = "/tmp"
 
                   [[project.service]]
@@ -460,7 +460,7 @@ struct ConfigTests {
             try parse(
                 """
                 [[project]]
-                name = "apmoove"
+                name = "storefront"
                 cwd = "/tmp"
 
                   [[project.service]]
@@ -468,7 +468,7 @@ struct ConfigTests {
                   command = "pnpm dev"
 
                 [[project]]
-                name = "apmoove"
+                name = "storefront"
                 cwd = "/tmp"
 
                   [[project.service]]
@@ -497,15 +497,19 @@ struct ConfigTests {
 
         #expect(
             config.services.map(\.name) == [
-                "postgres", "apmoove/web", "apmoove/api", "caisse/web",
+                "postgres", "storefront/web", "storefront/api", "warehouse/web",
             ])
-        #expect(config.service(named: "apmoove/api")?.stopTimeout == 15)
-        #expect(config.service(named: "apmoove/api")?.health?.kind == .http)
-        #expect(config.service(named: "apmoove/web")?.health?.port == 3000)
-        #expect(config.service(named: "apmoove/web")?.cwd == NSHomeDirectory() + "/code/apmoove")
+        #expect(config.service(named: "storefront/api")?.stopTimeout == 15)
+        #expect(config.service(named: "storefront/api")?.health?.kind == .http)
+        #expect(config.service(named: "storefront/web")?.health?.port == 3000)
         #expect(
-            config.service(named: "apmoove/api")?.cwd == NSHomeDirectory() + "/code/apmoove-api")
-        #expect(config.service(named: "caisse/web")?.port == 3000)
+            config.service(named: "storefront/web")?.cwd == NSHomeDirectory() + "/code/storefront"
+        )
+        #expect(
+            config.service(named: "storefront/api")?.cwd
+                == NSHomeDirectory() + "/code/storefront-api"
+        )
+        #expect(config.service(named: "warehouse/web")?.port == 3000)
         #expect(config.warnings.allSatisfy { $0.contains("cwd does not exist") })
     }
 }
