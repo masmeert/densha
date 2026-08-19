@@ -165,6 +165,8 @@ private struct FooterButton: View {
     let disabled: Bool
     let action: () -> Void
 
+    @State private var hovering = false
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 5) {
@@ -173,9 +175,17 @@ private struct FooterButton: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 30)
+            .background(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(Color.primary.opacity(hovering && !disabled ? 0.09 : 0.05))
+            )
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.glass)
+        .buttonStyle(.plain)
         .disabled(disabled)
+        .opacity(disabled ? 0.4 : 1)
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.14), value: hovering)
     }
 }
 
