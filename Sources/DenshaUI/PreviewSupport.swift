@@ -80,5 +80,7 @@
     private final class PreviewApplicationActions: ApplicationActions {
         func revealInFinder(path: String) {}
         func openConfig() throws {}
+        func copyToClipboard(_ text: String) {}
+        func saveLogFile(for service: String) throws {}
     }
 #endif

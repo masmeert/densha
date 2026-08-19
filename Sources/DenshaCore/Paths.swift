@@ -35,6 +35,11 @@ public enum Paths {
         logDir.appendingPathComponent("\(service).log")
     }
 
+    public static func logFiles(for service: String) -> [URL] {
+        let current = logFile(for: service)
+        return [current.appendingPathExtension("1"), current]
+    }
+
     public static func createDirectories() throws {
         for dir in [configDir, stateDir, logDir] {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -60,6 +65,7 @@ public enum DenshaError: Error, CustomStringConvertible, Sendable {
     case timedOut(String)
     case noSuchService(String)
     case serviceNotRunning(String)
+    case noLogFile(String)
 
     public var description: String {
         switch self {
@@ -79,6 +85,8 @@ public enum DenshaError: Error, CustomStringConvertible, Sendable {
             return "no such service: \(name)"
         case .serviceNotRunning(let name):
             return "\(name) is not running"
+        case .noLogFile(let name):
+            return "no log file for \(name)"
         }
     }
 }

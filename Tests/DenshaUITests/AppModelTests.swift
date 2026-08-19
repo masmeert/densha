@@ -39,9 +39,24 @@ struct AppModelTests {
 
         model.revealInFinder(ServiceStatus(name: "web", state: .running, cwd: "/tmp/web"))
         model.openConfigInEditor()
+        model.copyToClipboard("ready in 957 ms")
+        model.saveLogFile(for: "web")
 
         #expect(actions.revealedPaths == ["/tmp/web"])
         #expect(actions.openedConfigCount == 1)
+        #expect(actions.copiedText == ["ready in 957 ms"])
+        #expect(actions.savedLogServices == ["web"])
+    }
+
+    @Test("a failed log save surfaces the error")
+    func failedLogSaveSurfacesTheError() {
+        let actions = FakeApplicationActions()
+        actions.saveLogFileError = DenshaError.noLogFile("web")
+        let model = AppModel(daemon: FakeDaemonService(), applicationActions: actions)
+
+        model.saveLogFile(for: "web")
+
+        #expect(model.lastError == "no log file for web")
     }
 
     private func settle() async {
@@ -79,6 +94,7 @@ private final class FakeDaemonService: DaemonServing {
 private final class FakeApplicationActions: ApplicationActions {
     var revealedPaths: [String] = []
     var openedConfigCount = 0
+    var copiedText: [String] = []
 
     func revealInFinder(path: String) {
         revealedPaths.append(path)
@@ -86,5 +102,17 @@ private final class FakeApplicationActions: ApplicationActions {
 
     func openConfig() throws {
         openedConfigCount += 1
+    }
+
+    func copyToClipboard(_ text: String) {
+        copiedText.append(text)
+    }
+
+    var savedLogServices: [String] = []
+    var saveLogFileError: Error?
+
+    func saveLogFile(for service: String) throws {
+        if let saveLogFileError { throw saveLogFileError }
+        savedLogServices.append(service)
     }
 }

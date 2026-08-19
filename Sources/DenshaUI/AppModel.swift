@@ -128,6 +128,18 @@ public final class AppModel {
         applicationActions.revealInFinder(path: service.cwd)
     }
 
+    func copyToClipboard(_ text: String) {
+        applicationActions.copyToClipboard(text)
+    }
+
+    func saveLogFile(for service: String) {
+        do {
+            try applicationActions.saveLogFile(for: service)
+        } catch {
+            lastError = "\(error)"
+        }
+    }
+
     func openConfigInEditor() {
         do {
             try applicationActions.openConfig()

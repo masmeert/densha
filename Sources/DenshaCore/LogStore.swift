@@ -114,6 +114,12 @@ public final class LogStore {
         return String(decoding: visible, as: UTF8.self)
     }
 
+    public static func plainText(_ raw: Data) -> String {
+        var pieces = raw.split(separator: 0x0A, omittingEmptySubsequences: false)
+        if pieces.last?.isEmpty == true { pieces.removeLast() }
+        return pieces.map { Ansi.strip(collapseCarriageReturns(Data($0))) + "\n" }.joined()
+    }
+
     public func tail(_ n: Int?) -> [LogLine] {
         guard let n else { return ring.all }
         return ring.tail(n)

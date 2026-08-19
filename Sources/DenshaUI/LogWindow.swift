@@ -36,6 +36,15 @@ public struct LogWindow: View {
                 query: $query,
                 following: $following,
                 showTimestamps: $showTimestamps,
+                copy: {
+                    model.copyToClipboard(
+                        LogTranscriptText.copyText(
+                            session.follower?.lines ?? [], query: query,
+                            showTimestamps: showTimestamps))
+                },
+                download: {
+                    if let name = selectedService { model.saveLogFile(for: name) }
+                },
                 clear: { session.follower?.clear() }
             )
             Divider()
@@ -85,6 +94,8 @@ private struct LogToolbar: View {
     @Binding var query: String
     @Binding var following: Bool
     @Binding var showTimestamps: Bool
+    let copy: () -> Void
+    let download: () -> Void
     let clear: () -> Void
 
     var body: some View {
@@ -115,6 +126,16 @@ private struct LogToolbar: View {
             .toggleStyle(.button)
             .help("Show timestamps")
 
+            Button(action: copy) {
+                Image(systemName: "doc.on.doc")
+            }
+            .help("Copy visible log lines (last \(LogTranscriptText.copyLineLimit))")
+
+            Button(action: download) {
+                Image(systemName: "square.and.arrow.down")
+            }
+            .help("Save the full log file…")
+
             Button(action: clear) {
                 Image(systemName: "trash")
             }
@@ -132,18 +153,9 @@ private struct LogTranscript: View {
     let showTimestamps: Bool
 
     private static let bottomAnchor = UInt64.max
-    private static let formatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm:ss"
-        return formatter
-    }()
 
     private var lines: [LogLine] {
-        let trimmedQuery = query.trimmingCharacters(in: .whitespaces)
-        guard !trimmedQuery.isEmpty else { return follower.lines }
-        return follower.lines.filter {
-            Ansi.strip($0.text).localizedCaseInsensitiveContains(trimmedQuery)
-        }
+        LogTranscriptText.visible(follower.lines, query: query)
     }
 
     var body: some View {
@@ -159,7 +171,7 @@ private struct LogTranscript: View {
                     ForEach(lines) { line in
                         HStack(alignment: .top, spacing: 8) {
                             if showTimestamps {
-                                Text(Self.time(line.ts))
+                                Text(LogTranscriptText.time(line.ts))
                                     .font(.system(size: 11, design: .monospaced))
                                     .foregroundStyle(.tertiary)
                                     .monospacedDigit()
@@ -187,8 +199,40 @@ private struct LogTranscript: View {
             }
         }
     }
+}
 
-    private static func time(_ timestamp: Double) -> String {
+@MainActor
+enum LogTranscriptText {
+    static let copyLineLimit = 2000
+
+    private static let formatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        return formatter
+    }()
+
+    static func visible(_ lines: [LogLine], query: String) -> [LogLine] {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespaces)
+        guard !trimmedQuery.isEmpty else { return lines }
+        return lines.filter {
+            Ansi.strip($0.text).localizedCaseInsensitiveContains(trimmedQuery)
+        }
+    }
+
+    static func copyText(_ lines: [LogLine], query: String, showTimestamps: Bool) -> String {
+        let capped = visible(lines, query: query).suffix(copyLineLimit)
+        return plainText(Array(capped), showTimestamps: showTimestamps)
+    }
+
+    static func plainText(_ lines: [LogLine], showTimestamps: Bool) -> String {
+        lines.map { line in
+            let text = Ansi.strip(line.text)
+            return showTimestamps ? "\(time(line.ts)) \(text)" : text
+        }
+        .joined(separator: "\n")
+    }
+
+    static func time(_ timestamp: Double) -> String {
         formatter.string(from: Date(timeIntervalSince1970: timestamp))
     }
 }
