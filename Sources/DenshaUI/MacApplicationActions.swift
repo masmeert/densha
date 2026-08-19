@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 protocol ApplicationActions: AnyObject {
     func revealInFinder(path: String)
     func openConfig() throws
+    func open(_ url: URL)
     func copyToClipboard(_ text: String)
     func saveLogFile(for service: String) throws
 }
@@ -23,6 +24,10 @@ final class MacApplicationActions: ApplicationActions {
             try Paths.createDirectories()
             try Template.starter.write(to: url, atomically: true, encoding: .utf8)
         }
+        NSWorkspace.shared.open(url)
+    }
+
+    func open(_ url: URL) {
         NSWorkspace.shared.open(url)
     }
 
@@ -44,7 +49,8 @@ final class MacApplicationActions: ApplicationActions {
         formatter.dateFormat = "yyyy-MM-dd-HHmmss"
 
         let panel = NSSavePanel()
-        panel.nameFieldStringValue = "\(service)-\(formatter.string(from: Date())).log"
+        panel.nameFieldStringValue =
+            "\(ServiceName.short(of: service))-\(formatter.string(from: Date())).log"
         panel.allowedContentTypes = [.log]
         panel.canCreateDirectories = true
         guard panel.runModal() == .OK, let destination = panel.url else { return }

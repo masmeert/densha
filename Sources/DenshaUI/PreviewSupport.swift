@@ -4,29 +4,42 @@
 
     enum Sample {
         static let web = ServiceStatus(
-            name: "admin", state: .running, pid: 4211, pgid: 4211, port: 3000,
+            name: "apmoove/admin", state: .running, pid: 4211, pgid: 4211, port: 3000,
             startedAt: Date().timeIntervalSince1970 - 184, health: .passing,
             command: "npm run dev -w apps/admin", cwd: "/Users/you/work/apmoove")
 
         static let native = ServiceStatus(
-            name: "native", state: .starting, pid: 4212, pgid: 4212, port: 8081,
+            name: "apmoove/native", state: .starting, pid: 4212, pgid: 4212, port: 8081,
             startedAt: Date().timeIntervalSince1970 - 6, health: .pending,
             command: "npm run dev -w apps/native", cwd: "/Users/you/work/apmoove")
 
         static let api = ServiceStatus(
-            name: "api", state: .unhealthy, pid: 4213, pgid: 4213, port: 5040,
+            name: "apmoove/api", state: .unhealthy, pid: 4213, pgid: 4213, port: 5040,
             startedAt: Date().timeIntervalSince1970 - 42, health: .failing,
             command: "dotnet run --project src/Api", cwd: "/Users/you/work/apmoove-api")
 
         static let worker = ServiceStatus(
-            name: "worker", state: .stopped, command: "npm run worker",
+            name: "apmoove/worker", state: .stopped, command: "npm run worker",
             cwd: "/Users/you/work/apmoove")
 
-        static let broken = ServiceStatus(
-            name: "caisse", state: .failed, exitCode: 1,
-            command: "npm run dev -w apps/caisse", cwd: "/Users/you/work/apmoove")
+        static let otherWeb = ServiceStatus(
+            name: "caisse/web", state: .failed, port: 3000, exitCode: 1,
+            command: "pnpm dev", cwd: "/Users/you/work/caisse")
 
-        static let all = [web, native, api, worker, broken]
+        static let postgres = ServiceStatus(
+            name: "postgres", state: .running, pid: 4290, pgid: 4290, port: 5432,
+            startedAt: Date().timeIntervalSince1970 - 5400, health: .passing,
+            command: "postgres -D /opt/homebrew/var/postgresql@16", cwd: "/Users/you")
+
+        static let all = [postgres, web, native, api, worker, otherWeb]
+
+        static let scannedPorts: [ScannedPort] = [
+            ScannedPort(
+                port: 3000, pid: 4288, processName: "node", conflictsWith: "apmoove/admin"),
+            ScannedPort(port: 5432, pid: 4290, processName: "postgres"),
+            ScannedPort(port: 6379, pid: 4301, processName: "redis-server"),
+            ScannedPort(port: 8787, pid: 4377, processName: "node"),
+        ]
 
         static let logLines: [LogLine] = [
             LogLine(seq: 1, ts: Date().timeIntervalSince1970 - 9, text: "> vite"),
@@ -53,11 +66,13 @@
             services: [ServiceStatus] = Sample.all,
             link: LinkState = .connected,
             warnings: [String] = [],
-            lastError: String? = nil
+            lastError: String? = nil,
+            scannedPorts: [ScannedPort] = []
         ) -> AppModel {
             let model = AppModel(
                 daemon: PreviewDaemonService(), applicationActions: PreviewApplicationActions())
             model.services = services
+            model.scannedPorts = scannedPorts
             model.link = link
             model.warnings = warnings
             model.lastError = lastError
@@ -80,6 +95,7 @@
     private final class PreviewApplicationActions: ApplicationActions {
         func revealInFinder(path: String) {}
         func openConfig() throws {}
+        func open(_ url: URL) {}
         func copyToClipboard(_ text: String) {}
         func saveLogFile(for service: String) throws {}
     }

@@ -13,6 +13,7 @@ enum LinkEvent: Sendable {
     case state(LinkState)
     case services([ServiceStatus])
     case warnings([String])
+    case ports([ScannedPort])
 }
 
 @MainActor
@@ -77,6 +78,7 @@ final class DaemonLink: @unchecked Sendable {
                 continuation.yield(.state(.connected))
                 continuation.yield(.services(response.services ?? []))
                 continuation.yield(.warnings(response.warnings ?? []))
+                continuation.yield(.ports(response.ports ?? []))
                 backoff = 0.25
 
                 while !isStopping, let message = try client.nextMessage() {
@@ -88,6 +90,8 @@ final class DaemonLink: @unchecked Sendable {
                         case .reloaded(let services, let warnings):
                             continuation.yield(.services(services))
                             continuation.yield(.warnings(warnings))
+                        case .ports(let ports):
+                            continuation.yield(.ports(ports))
                         case .log:
                             continue
                         }
@@ -145,7 +149,7 @@ enum Commands {
                     defer { client.close() }
                     let response = try client.send(command)
                     if !response.ok {
-                        throw DenshaError.daemonUnreachable(response.error ?? "command failed")
+                        throw DenshaError.commandFailed(response.error ?? "command failed")
                     }
                     continuation.resume(returning: response)
                 } catch {

@@ -108,7 +108,8 @@ enum PTYSpawner {
         env["COLUMNS"] = String(columns)
         env["LINES"] = String(rows)
 
-        env["DENSHA_SERVICE"] = svc.name
+        env["DENSHA_SERVICE"] = svc.shortName
+        if let project = svc.project { env["DENSHA_PROJECT"] = project }
         if let port = svc.port { env["DENSHA_PORT"] = String(port) }
         env.removeValue(forKey: "DENSHA_SOCKET")
 

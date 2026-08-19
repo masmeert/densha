@@ -76,7 +76,7 @@ struct ServiceRow: View {
                 HStack(spacing: 10) {
                     StatusDot(state: service.state, health: service.health, animate: !reduceMotion)
 
-                    Text(service.name)
+                    Text(service.shortName)
                         .font(.system(size: 13))
                         .foregroundStyle(service.isLive ? .primary : .secondary)
                         .lineLimit(1)

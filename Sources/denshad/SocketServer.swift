@@ -177,7 +177,12 @@ actor SocketServer {
             connection.send(
                 Response(
                     id: requestID, ok: true, services: await supervisor.snapshot(),
-                    warnings: await supervisor.warnings()))
+                    warnings: await supervisor.warnings(),
+                    ports: await supervisor.portsSnapshot()))
+
+        case .ports:
+            connection.send(
+                Response(id: requestID, ok: true, ports: await supervisor.rescanPorts()))
 
         case .start(let names):
             let errors = await supervisor.start(names: names)
@@ -212,10 +217,11 @@ actor SocketServer {
 
         case .logs(let name, let tail, let follow):
             do {
-                let lines = try await supervisor.logLines(name: name, tail: tail)
+                let service = try await supervisor.resolveOne(name)
+                let lines = try await supervisor.logLines(name: service, tail: tail)
                 connection.send(Response(id: requestID, ok: true, lines: lines))
                 guard follow else { return nil }
-                let (id, stream) = await supervisor.subscribe(status: false, logFilter: name)
+                let (id, stream) = await supervisor.subscribe(status: false, logFilter: service)
                 pump(stream, to: connection)
                 return id
             } catch {
@@ -226,7 +232,8 @@ actor SocketServer {
             connection.send(
                 Response(
                     id: requestID, ok: true, services: await supervisor.snapshot(),
-                    warnings: await supervisor.warnings()))
+                    warnings: await supervisor.warnings(),
+                    ports: await supervisor.portsSnapshot()))
             let (id, stream) = await supervisor.subscribe(status: true, logFilter: nil)
             pump(stream, to: connection)
             return id

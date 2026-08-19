@@ -1,10 +1,12 @@
 import DenshaCore
+import Foundation
 import Observation
 
 @MainActor
 @Observable
 public final class AppModel {
     public var services: [ServiceStatus] = []
+    var scannedPorts: [ScannedPort] = []
     var link: LinkState = .connecting
     var warnings: [String] = []
     var lastError: String?
@@ -34,6 +36,7 @@ public final class AppModel {
                 case .state(let state): self.link = state
                 case .services(let services): self.apply(services)
                 case .warnings(let warnings): self.warnings = warnings
+                case .ports(let ports): self.scannedPorts = ports
                 }
             }
         }
@@ -70,10 +73,36 @@ public final class AppModel {
     func stop(_ name: String) { perform(.stop(names: [name]), marking: [name]) }
     func restart(_ name: String) { perform(.restart(names: [name]), marking: [name]) }
 
-    func startAll() {
-        let names = services.filter { !$0.isLive }.map(\.name)
+    struct ServiceGroup: Identifiable {
+        let project: String?
+        let services: [ServiceStatus]
+
+        var id: String { project ?? "" }
+        var anyLive: Bool { services.contains(where: \.isLive) }
+        var allLive: Bool { services.allSatisfy(\.isLive) }
+    }
+
+    var groups: [ServiceGroup] {
+        var projects: [String?] = []
+        var members: [String: [ServiceStatus]] = [:]
+        for service in services {
+            let key = service.project ?? ""
+            if members[key] == nil { projects.append(service.project) }
+            members[key, default: []].append(service)
+        }
+        return projects.map { ServiceGroup(project: $0, services: members[$0 ?? ""] ?? []) }
+    }
+
+    func start(_ group: ServiceGroup) {
+        let names = group.services.filter { !$0.isLive }.map(\.name)
         guard !names.isEmpty else { return }
-        perform(.start(names: names), marking: names)
+        perform(.start(names: group.project.map { [$0] } ?? names), marking: names)
+    }
+
+    func stop(_ group: ServiceGroup) {
+        let names = group.services.filter(\.isLive).map(\.name)
+        guard !names.isEmpty else { return }
+        perform(.stop(names: names), marking: names)
     }
 
     func stopAll() {
@@ -122,6 +151,11 @@ public final class AppModel {
                     return service.state != .starting && service.state != .stopping
                 })
         }
+    }
+
+    func openInBrowser(_ scanned: ScannedPort) {
+        guard let url = URL(string: "http://localhost:\(scanned.port)") else { return }
+        applicationActions.open(url)
     }
 
     func revealInFinder(_ service: ServiceStatus) {

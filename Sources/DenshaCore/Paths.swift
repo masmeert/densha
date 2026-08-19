@@ -32,7 +32,11 @@ public enum Paths {
     }
 
     public static func logFile(for service: String) -> URL {
-        logDir.appendingPathComponent("\(service).log")
+        var url = logDir
+        for component in service.split(separator: ServiceName.separator) {
+            url.appendPathComponent(String(component))
+        }
+        return url.appendingPathExtension("log")
     }
 
     public static func logFiles(for service: String) -> [URL] {
@@ -60,10 +64,12 @@ public enum DenshaError: Error, CustomStringConvertible, Sendable {
     case socketPathTooLong(path: String, length: Int)
     case daemonNotRunning
     case daemonUnreachable(String)
+    case commandFailed(String)
     case connectionClosed
     case protocolViolation(String)
     case timedOut(String)
     case noSuchService(String)
+    case ambiguousTarget(String, matches: [String])
     case serviceNotRunning(String)
     case noLogFile(String)
 
@@ -75,6 +81,8 @@ public enum DenshaError: Error, CustomStringConvertible, Sendable {
             return "denshad is not running"
         case .daemonUnreachable(let reason):
             return "cannot reach denshad: \(reason)"
+        case .commandFailed(let reason):
+            return reason
         case .connectionClosed:
             return "connection closed by denshad"
         case .protocolViolation(let detail):
@@ -83,6 +91,8 @@ public enum DenshaError: Error, CustomStringConvertible, Sendable {
             return "timed out waiting for \(what)"
         case .noSuchService(let name):
             return "no such service: \(name)"
+        case .ambiguousTarget(let name, let matches):
+            return "\(name) is ambiguous — did you mean \(matches.joined(separator: ", "))?"
         case .serviceNotRunning(let name):
             return "\(name) is not running"
         case .noLogFile(let name):

@@ -1,4 +1,5 @@
 import DenshaCore
+import Foundation
 import Testing
 
 @testable import DenshaUI
@@ -19,6 +20,65 @@ struct AppModelTests {
 
         #expect(model.link == .connected)
         #expect(model.services == [service])
+    }
+
+    @Test("scanned ports arrive from the daemon and open in the browser")
+    func scannedPortsAreShownAndOpened() async {
+        let daemon = FakeDaemonService()
+        let actions = FakeApplicationActions()
+        let model = AppModel(daemon: daemon, applicationActions: actions)
+        let scanned = ScannedPort(port: 5432, pid: 812, processName: "postgres")
+
+        model.connect()
+        daemon.continuation.yield(.ports([scanned]))
+        await settle()
+        model.openInBrowser(scanned)
+
+        #expect(model.scannedPorts == [scanned])
+        #expect(actions.openedURLs.map(\.absoluteString) == ["http://localhost:5432"])
+    }
+
+    @Test("services are grouped by project, ungrouped ones first")
+    func servicesAreGroupedByProject() async {
+        let daemon = FakeDaemonService()
+        let model = AppModel(daemon: daemon, applicationActions: FakeApplicationActions())
+
+        model.connect()
+        daemon.continuation.yield(
+            .services([
+                ServiceStatus(name: "postgres", state: .running, pid: 10, pgid: 10, port: 5432),
+                ServiceStatus(name: "apmoove/web", state: .stopped, port: 3000),
+                ServiceStatus(name: "apmoove/api", state: .running, pid: 11, pgid: 11),
+                ServiceStatus(name: "caisse/web", state: .stopped, port: 3000),
+            ]))
+        await settle()
+
+        #expect(model.groups.map(\.project) == [nil, "apmoove", "caisse"])
+        #expect(model.groups.map(\.services.count) == [1, 2, 1])
+        #expect(model.groups[1].anyLive)
+        #expect(!model.groups[1].allLive)
+        #expect(!model.groups[2].anyLive)
+    }
+
+    @Test("starting a project sends the project, not its services")
+    func startingAProjectSendsTheProject() async {
+        let daemon = FakeDaemonService()
+        let model = AppModel(daemon: daemon, applicationActions: FakeApplicationActions())
+
+        model.connect()
+        daemon.continuation.yield(
+            .services([
+                ServiceStatus(name: "postgres", state: .stopped, port: 5432),
+                ServiceStatus(name: "apmoove/web", state: .stopped, port: 3000),
+                ServiceStatus(name: "apmoove/api", state: .stopped),
+            ]))
+        await settle()
+
+        model.start(model.groups[1])
+        model.start(model.groups[0])
+        await settle()
+
+        #expect(daemon.commands == [.start(names: ["apmoove"]), .start(names: ["postgres"])])
     }
 
     @Test("service actions use typed daemon commands")
@@ -94,6 +154,7 @@ private final class FakeDaemonService: DaemonServing {
 private final class FakeApplicationActions: ApplicationActions {
     var revealedPaths: [String] = []
     var openedConfigCount = 0
+    var openedURLs: [URL] = []
     var copiedText: [String] = []
 
     func revealInFinder(path: String) {
@@ -102,6 +163,10 @@ private final class FakeApplicationActions: ApplicationActions {
 
     func openConfig() throws {
         openedConfigCount += 1
+    }
+
+    func open(_ url: URL) {
+        openedURLs.append(url)
     }
 
     func copyToClipboard(_ text: String) {

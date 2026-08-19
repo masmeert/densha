@@ -15,6 +15,31 @@ struct ProtocolTests {
         #expect(data.dropLast().firstIndex(of: 0x0A) == nil)
     }
 
+    @Test("a ports event survives a round trip")
+    func portsEventRoundTrips() throws {
+        let scanned = ScannedPort(
+            port: 5432, pid: 812, processName: "postgres", conflictsWith: "db")
+        let data = try Wire.line(Event(.ports([scanned])))
+        let message = try Wire.decoder.decode(ServerMessage.self, from: data)
+        guard case .event(let event) = message else {
+            Issue.record("expected an event")
+            return
+        }
+        #expect(try event.decoded() == .ports([scanned]))
+    }
+
+    @Test("a ports event without ports is rejected")
+    func portsEventNeedsPorts() throws {
+        let raw = Data(#"{"event":"ports"}"#.utf8)
+        let event = try Wire.decoder.decode(Event.self, from: raw)
+        #expect(throws: DenshaError.self) { try event.decoded() }
+    }
+
+    @Test("the ports request maps to the ports command")
+    func portsRequestMapsToCommand() throws {
+        #expect(try Request(id: 3, command: .ports).command() == .ports)
+    }
+
     @Test("a message carrying id decodes as a response")
     func discriminatesResponse() throws {
         let raw = Data(#"{"id":7,"ok":true}"#.utf8)

@@ -23,23 +23,79 @@ densha init
 Create or edit `~/.config/densha/services.toml`:
 
 ```toml
-[[service]]
-name = "web"
-cwd = "~/my-project"
-command = "npm run dev"
-port = 3000
-health = { type = "tcp", port = 3000 }
+[[project]]
+name = "apmoove"
+cwd = "~/code/apmoove"
+
+  [[project.service]]
+  name = "web"
+  command = "pnpm dev"
+  port = 3000
+  health = { type = "tcp", port = 3000 }
+
+  [[project.service]]
+  name = "api"
+  cwd = "../apmoove-api"        # relative to the project cwd
+  command = "go run ./cmd/api"
+  port = 8080
 ```
 
 Reload changes from the menu bar or with `densha reload`.
 
+### Projects
+
+A project groups the services of one codebase. It starts and stops as a unit, gives its
+services a shared `cwd` to be relative to, and gets its own section — with its own start
+and stop buttons — in the menu bar. There is deliberately no global "start all": across
+projects that is rarely what you want.
+
+Services inside a project are named `project/service`, so **two projects may declare the
+same port** — the usual case being several Vite apps that all want `:3000`. They are
+mutually exclusive rather than invalid: starting one stops whichever live service
+already holds a port it needs.
+
+```sh
+densha start apmoove          # the whole project, freeing :3000 if caisse holds it
+densha restart apmoove/web    # one service
+densha logs web -f            # bare names work when only one project defines them
+```
+
+Two services *inside one project* claiming the same port is still a mistake, and warns.
+
+Services declared at the top level as `[[service]]` stay ungrouped, keep their bare name,
+and appear above the projects — a flat config from an earlier version keeps working
+unchanged.
+
+### Other ports
+
+The menu bar lists an **Other ports** section underneath your services: processes
+listening on a local TCP port that none of your running services owns — a database you
+started by hand, a container publishing a port, another project's dev server. Click one
+to open `http://localhost:<port>`.
+
+Ownership is decided by process, not by port number, so a port you declared is still
+listed when a foreign process holds it. Those rows are marked in orange with the service
+that wants the port — that is the answer to "why won't `admin` start, 3000 is taken?".
+
+Privileged ports below 1024 and ephemeral ports above 49151 are never listed. Hide
+anything else you do not care about:
+
+```toml
+[scan]
+enabled = true
+ignore_ports = [15292]
+ignore_processes = ["OrbStack Helper"]
+```
+
 ## CLI
 
 ```sh
-densha start web
+densha start apmoove          # a whole project
+densha restart apmoove/web    # one service
 densha stop --all
 densha logs web -f
 densha status --json
+densha ports
 ```
 
 ## Development
@@ -49,7 +105,7 @@ truth. Run `make` for the full target list.
 
 ```sh
 make build      # ~1s
-make test       # 54 tests, ~0.5s warm
+make test       # 104 tests, ~2s warm
 make lint       # swift-format, configured in .swift-format
 make run        # rebuild (debug) and relaunch the app
 make xcode      # open Package.swift in Xcode, for SwiftUI previews

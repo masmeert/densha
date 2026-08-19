@@ -254,6 +254,230 @@ struct ConfigTests {
         #expect(web.env["API"] == "http://localhost:8080")
     }
 
+    @Test("two services on one port load but warn, since only one can bind")
+    func duplicatePortsWarn() throws {
+        let config = try parse(
+            """
+            [[service]]
+            name = "admin"
+            cwd = "/tmp"
+            command = "pnpm dev"
+            port = 3000
+
+            [[service]]
+            name = "admin-legacy"
+            cwd = "/tmp"
+            command = "pnpm dev:legacy"
+            port = 3000
+            """)
+
+        #expect(config.services.map(\.name) == ["admin", "admin-legacy"])
+        #expect(
+            config.warnings == [
+                "services \"admin\" and \"admin-legacy\" both declare port 3000 "
+                    + "— only one of them can run at a time"
+            ])
+    }
+
+    @Test("port scanning is on by default and configurable")
+    func scanRules() throws {
+        let defaults = try parse(
+            """
+            [[service]]
+            name = "web"
+            cwd = "/tmp"
+            command = "pnpm dev"
+            """)
+        #expect(defaults.scan == .default)
+        #expect(defaults.scan.enabled)
+
+        let tuned = try parse(
+            """
+            [scan]
+            enabled = false
+            ignore_ports = [15292, 15393]
+            ignore_processes = ["OrbStack Helper"]
+
+            [[service]]
+            name = "web"
+            cwd = "/tmp"
+            command = "pnpm dev"
+            """)
+        #expect(!tuned.scan.enabled)
+        #expect(tuned.scan.ignoredPorts == [15292, 15393])
+        #expect(tuned.scan.ignores(port: 15393, processName: "node"))
+        #expect(tuned.scan.ignores(port: 8080, processName: "OrbStack Helper"))
+        #expect(!tuned.scan.ignores(port: 8080, processName: "node"))
+    }
+
+    @Test("an out-of-range ignored port is rejected")
+    func scanRejectsImpossiblePort() throws {
+        #expect(throws: ConfigError.self) {
+            try parse(
+                """
+                [scan]
+                ignore_ports = [70000]
+
+                [[service]]
+                name = "web"
+                cwd = "/tmp"
+                command = "pnpm dev"
+                """)
+        }
+    }
+
+    @Test("services in a project are qualified and inherit the project cwd")
+    func projectsQualifyAndShareCwd() throws {
+        let config = try parse(
+            """
+            [[project]]
+            name = "apmoove"
+            cwd = "/tmp"
+
+              [[project.service]]
+              name = "web"
+              command = "pnpm dev"
+              port = 3000
+
+              [[project.service]]
+              name = "api"
+              cwd = "nested"
+              command = "go run ./cmd/api"
+            """)
+
+        #expect(config.services.map(\.name) == ["apmoove/web", "apmoove/api"])
+        #expect(config.service(named: "apmoove/web")?.cwd == "/tmp")
+        #expect(config.service(named: "apmoove/api")?.cwd == "/tmp/nested")
+        #expect(config.service(named: "apmoove/web")?.shortName == "web")
+        #expect(config.service(named: "apmoove/web")?.project == "apmoove")
+    }
+
+    @Test("two projects may declare the same port without complaint")
+    func projectsMayShareAPort() throws {
+        let config = try parse(
+            """
+            [[project]]
+            name = "apmoove"
+            cwd = "/tmp"
+
+              [[project.service]]
+              name = "web"
+              command = "pnpm dev"
+              port = 3000
+
+            [[project]]
+            name = "caisse"
+            cwd = "/tmp"
+
+              [[project.service]]
+              name = "web"
+              command = "pnpm dev"
+              port = 3000
+            """)
+
+        #expect(config.services.map(\.name) == ["apmoove/web", "caisse/web"])
+        #expect(config.warnings.isEmpty)
+    }
+
+    @Test("one project claiming a port twice is still a mistake")
+    func duplicatePortsInsideAProjectWarn() throws {
+        let config = try parse(
+            """
+            [[project]]
+            name = "apmoove"
+            cwd = "/tmp"
+
+              [[project.service]]
+              name = "web"
+              command = "pnpm dev"
+              port = 3000
+
+              [[project.service]]
+              name = "web-legacy"
+              command = "pnpm dev:legacy"
+              port = 3000
+            """)
+
+        #expect(
+            config.warnings == [
+                "services \"apmoove/web\" and \"apmoove/web-legacy\" both declare port 3000 "
+                    + "— only one of them can run at a time"
+            ])
+    }
+
+    @Test("a relative cwd needs a project to be relative to")
+    func relativeCwdNeedsAProject() throws {
+        #expect(throws: ConfigError.self) {
+            try parse(
+                """
+                [[service]]
+                name = "web"
+                cwd = "code/web"
+                command = "pnpm dev"
+                """)
+        }
+    }
+
+    @Test("a service in a project without any cwd is rejected")
+    func cwdIsStillRequired() throws {
+        #expect(throws: ConfigError.self) {
+            try parse(
+                """
+                [[project]]
+                name = "apmoove"
+
+                  [[project.service]]
+                  name = "web"
+                  command = "pnpm dev"
+                """)
+        }
+    }
+
+    @Test("a project cannot share its name with an ungrouped service")
+    func projectAndServiceNamesCannotCollide() throws {
+        #expect(throws: ConfigError.self) {
+            try parse(
+                """
+                [[service]]
+                name = "apmoove"
+                cwd = "/tmp"
+                command = "pnpm dev"
+
+                [[project]]
+                name = "apmoove"
+                cwd = "/tmp"
+
+                  [[project.service]]
+                  name = "web"
+                  command = "pnpm dev"
+                """)
+        }
+    }
+
+    @Test("two projects cannot share a name")
+    func projectNamesAreUnique() throws {
+        #expect(throws: ConfigError.self) {
+            try parse(
+                """
+                [[project]]
+                name = "apmoove"
+                cwd = "/tmp"
+
+                  [[project.service]]
+                  name = "web"
+                  command = "pnpm dev"
+
+                [[project]]
+                name = "apmoove"
+                cwd = "/tmp"
+
+                  [[project.service]]
+                  name = "api"
+                  command = "pnpm api"
+                """)
+        }
+    }
+
     @Test("the shipped starter template is itself valid once uncommented")
     func templateIsValid() throws {
         #expect(throws: ConfigError.self) {
@@ -264,15 +488,24 @@ struct ConfigTests {
             .map { line -> String in
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
                 guard trimmed.hasPrefix("# ") else { return String(line) }
-                let body = trimmed.dropFirst(2)
-                if body.contains("=") || body.hasPrefix("[[") { return String(body) }
+                let body = trimmed.dropFirst(2).trimmingCharacters(in: .whitespaces)
+                if body.contains("=") || body.hasPrefix("[[") { return body }
                 return String(line)
             }
             .joined(separator: "\n")
         let config = try ConfigLoader.parse(Data(uncommented.utf8))
-        #expect(config.services.map(\.name) == ["web", "api"])
-        #expect(config.service(named: "api")?.stopTimeout == 15)
-        #expect(config.service(named: "api")?.health?.kind == .http)
-        #expect(config.service(named: "web")?.health?.port == 3000)
+
+        #expect(
+            config.services.map(\.name) == [
+                "postgres", "apmoove/web", "apmoove/api", "caisse/web",
+            ])
+        #expect(config.service(named: "apmoove/api")?.stopTimeout == 15)
+        #expect(config.service(named: "apmoove/api")?.health?.kind == .http)
+        #expect(config.service(named: "apmoove/web")?.health?.port == 3000)
+        #expect(config.service(named: "apmoove/web")?.cwd == NSHomeDirectory() + "/code/apmoove")
+        #expect(
+            config.service(named: "apmoove/api")?.cwd == NSHomeDirectory() + "/code/apmoove-api")
+        #expect(config.service(named: "caisse/web")?.port == 3000)
+        #expect(config.warnings.allSatisfy { $0.contains("cwd does not exist") })
     }
 }

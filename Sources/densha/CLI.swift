@@ -10,7 +10,7 @@ struct Densha: AsyncParsableCommand {
         abstract: "Run your dev servers without keeping a terminal open.",
         version: "0.2.1",
         subcommands: [
-            Status.self, Start.self, Stop.self, Restart.self, Logs.self, Send.self,
+            Status.self, Ports.self, Start.self, Stop.self, Restart.self, Logs.self, Send.self,
             Reload.self, Init.self, Edit.self, DaemonControl.self, InstallCLI.self,
         ],
         defaultSubcommand: Status.self
@@ -18,7 +18,12 @@ struct Densha: AsyncParsableCommand {
 }
 
 struct TargetOptions: ParsableArguments {
-    @Argument(help: "Service names. Omit and pass --all to target everything.")
+    @Argument(
+        help: """
+            Projects or services. A project name means all of its services; a service \
+            is either project/name or a bare name when only one project defines it. \
+            Omit and pass --all to target everything.
+            """)
     var names: [String] = []
 
     @Flag(name: .long, help: "Apply to every configured service.")
@@ -27,7 +32,7 @@ struct TargetOptions: ParsableArguments {
     func resolved() throws -> [String]? {
         if all { return nil }
         guard !names.isEmpty else {
-            throw ValidationError("name at least one service, or pass --all")
+            throw ValidationError("name at least one project or service, or pass --all")
         }
         return names
     }
@@ -110,14 +115,22 @@ func printTable(_ services: [ServiceStatus]) {
         print(Style.dim("no services configured — run `densha init`"))
         return
     }
-    let nameWidth = max(4, services.map(\.name.count).max() ?? 4)
-    for s in services {
-        var row = "\(Style.marker(s.state)) \(Style.pad(s.name, nameWidth))  "
-        row += Style.pad(Style.describe(s), 22)
-        row += Style.pad(s.port.map { ":\($0)" } ?? "", 7)
-        if let pid = s.pid {
+    let nameWidth = max(4, services.map(\.shortName.count).max() ?? 4)
+    var currentProject: String??
+    for service in services {
+        if currentProject != .some(service.project) {
+            currentProject = .some(service.project)
+            if let project = service.project {
+                print(Style.bold(project))
+            }
+        }
+        var row = service.project == nil ? "" : "  "
+        row += "\(Style.marker(service.state)) \(Style.pad(service.shortName, nameWidth))  "
+        row += Style.pad(Style.describe(service), 22)
+        row += Style.pad(service.port.map { ":\($0)" } ?? "", 7)
+        if let pid = service.pid {
             row += Style.dim("pid \(pid)  ")
-            row += Style.dim(Style.uptime(s.startedAt))
+            row += Style.dim(Style.uptime(service.startedAt))
         }
         print(row)
     }
@@ -168,8 +181,71 @@ struct Status: AsyncParsableCommand {
     }
 }
 
+struct Ports: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        abstract: "Show listening ports that no configured service claims.",
+        discussion: """
+            Lists processes holding a local TCP port that none of densha's running \
+            services owns — a database you started by hand, a container publishing a \
+            port, another project's dev server.
+
+            A port that a configured service declares but a foreign process holds is \
+            marked with ! : that service cannot start until the port is free.
+
+            Privileged ports below 1024 and ephemeral ports above 49151 are left out.
+            """
+    )
+
+    @Flag(help: "Emit raw JSON instead of a table.")
+    var json = false
+
+    func run() async throws {
+        guard DaemonClient.isDaemonRunning() else {
+            if json {
+                print(#"{"daemon":"stopped","ports":[]}"#)
+            } else {
+                print(Style.dim("denshad is not running — `densha daemon start` will start it"))
+            }
+            return
+        }
+        try withClient { client in
+            let response = try client.send(.ports)
+            try reportFailure(response)
+            let ports = response.ports ?? []
+            if json {
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                print(String(decoding: try encoder.encode(ports), as: UTF8.self))
+                return
+            }
+            guard !ports.isEmpty else {
+                print(Style.dim("no unclaimed ports in use"))
+                return
+            }
+            let nameWidth = max(4, ports.map(\.processName.count).max() ?? 4)
+            for scanned in ports {
+                var row = scanned.conflictsWith == nil ? "  " : Style.yellow("! ")
+                row += Style.pad(":\(scanned.port)", 8)
+                row += Style.pad(scanned.processName, nameWidth + 2)
+                row += Style.pad(Style.dim("pid \(scanned.pid)"), 12)
+                if let conflictsWith = scanned.conflictsWith {
+                    row += Style.yellow("holds \(conflictsWith)'s port")
+                }
+                print(row)
+            }
+        }
+    }
+}
+
 struct Start: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(abstract: "Start one or more services.")
+    static let configuration = CommandConfiguration(
+        abstract: "Start a project or individual services.",
+        discussion: """
+            Projects that declare the same port — two Vite apps on 3000, say — are \
+            mutually exclusive. Starting one stops whichever live service already \
+            holds a port it needs, so `densha start apmoove` is enough to switch \
+            projects.
+            """)
     @OptionGroup var target: TargetOptions
 
     func run() async throws {

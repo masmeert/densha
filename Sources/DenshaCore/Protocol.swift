@@ -10,6 +10,7 @@ public enum Op: String, Codable, Sendable {
     case logs
     case watch
     case input
+    case ports
     case shutdown
 }
 
@@ -23,6 +24,7 @@ public enum DaemonCommand: Sendable, Equatable {
     case logs(name: String, tail: Int?, follow: Bool)
     case watch
     case input(name: String, data: String)
+    case ports
     case shutdown
 }
 
@@ -77,6 +79,8 @@ public struct Request: Codable, Sendable {
             self.op = .input
             self.name = name
             self.data = data
+        case .ports:
+            self.op = .ports
         case .shutdown:
             self.op = .shutdown
         }
@@ -101,6 +105,7 @@ public struct Request: Codable, Sendable {
                 throw DenshaError.protocolViolation("input requires \"name\" and \"data\"")
             }
             return .input(name: name, data: data)
+        case .ports: return .ports
         case .shutdown: return .shutdown
         }
     }
@@ -164,6 +169,22 @@ public struct ServiceStatus: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
+public struct ScannedPort: Codable, Sendable, Equatable, Identifiable {
+    public var port: Int
+    public var pid: Int32
+    public var processName: String
+    public var conflictsWith: String?
+
+    public var id: Int { port }
+
+    public init(port: Int, pid: Int32, processName: String, conflictsWith: String? = nil) {
+        self.port = port
+        self.pid = pid
+        self.processName = processName
+        self.conflictsWith = conflictsWith
+    }
+}
+
 public struct LogLine: Codable, Sendable, Equatable, Identifiable {
     public var seq: UInt64
     public var ts: Double
@@ -185,10 +206,11 @@ public struct Response: Codable, Sendable {
     public var services: [ServiceStatus]?
     public var lines: [LogLine]?
     public var warnings: [String]?
+    public var ports: [ScannedPort]?
 
     public init(
         id: Int, ok: Bool, error: String? = nil, services: [ServiceStatus]? = nil,
-        lines: [LogLine]? = nil, warnings: [String]? = nil
+        lines: [LogLine]? = nil, warnings: [String]? = nil, ports: [ScannedPort]? = nil
     ) {
         self.id = id
         self.ok = ok
@@ -196,6 +218,7 @@ public struct Response: Codable, Sendable {
         self.services = services
         self.lines = lines
         self.warnings = warnings
+        self.ports = ports
     }
 
     public static func failure(id: Int, _ message: String) -> Response {
@@ -208,6 +231,7 @@ public struct Event: Codable, Sendable {
         case status
         case log
         case reloaded
+        case ports
     }
 
     public var event: Kind
@@ -215,16 +239,18 @@ public struct Event: Codable, Sendable {
     public var name: String?
     public var line: LogLine?
     public var warnings: [String]?
+    public var ports: [ScannedPort]?
 
     public init(
         event: Kind, services: [ServiceStatus]? = nil, name: String? = nil, line: LogLine? = nil,
-        warnings: [String]? = nil
+        warnings: [String]? = nil, ports: [ScannedPort]? = nil
     ) {
         self.event = event
         self.services = services
         self.name = name
         self.line = line
         self.warnings = warnings
+        self.ports = ports
     }
 }
 
@@ -232,6 +258,7 @@ public enum DaemonEvent: Sendable, Equatable {
     case status([ServiceStatus])
     case log(name: String, line: LogLine)
     case reloaded(services: [ServiceStatus], warnings: [String])
+    case ports([ScannedPort])
 }
 
 extension Event {
@@ -243,6 +270,8 @@ extension Event {
             self.init(event: .log, name: name, line: line)
         case .reloaded(let services, let warnings):
             self.init(event: .reloaded, services: services, warnings: warnings)
+        case .ports(let ports):
+            self.init(event: .ports, ports: ports)
         }
     }
 
@@ -263,6 +292,11 @@ extension Event {
                 throw DenshaError.protocolViolation("reloaded event requires \"services\"")
             }
             return .reloaded(services: services, warnings: warnings ?? [])
+        case .ports:
+            guard let ports else {
+                throw DenshaError.protocolViolation("ports event requires \"ports\"")
+            }
+            return .ports(ports)
         }
     }
 }

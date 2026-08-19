@@ -3,7 +3,21 @@ import TOMLDecoder
 
 struct ConfigFile: Decodable {
     var defaults: DefaultsSpec?
+    var scan: ScanSpec?
+    var project: [ProjectSpec]?
     var service: [ServiceSpec]?
+}
+
+struct ScanSpec: Decodable {
+    var enabled: Bool?
+    var ignorePorts: [Int]?
+    var ignoreProcesses: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case enabled
+        case ignorePorts = "ignore_ports"
+        case ignoreProcesses = "ignore_processes"
+    }
 }
 
 struct DefaultsSpec: Decodable {
@@ -20,9 +34,15 @@ struct DefaultsSpec: Decodable {
     }
 }
 
+struct ProjectSpec: Decodable {
+    var name: String
+    var cwd: String?
+    var service: [ServiceSpec]?
+}
+
 struct ServiceSpec: Decodable {
     var name: String
-    var cwd: String
+    var cwd: String?
     var command: String
     var port: Int?
     var autostart: Bool?
@@ -77,6 +97,36 @@ public struct ResolvedService: Sendable, Equatable {
     public var argv: [String] { [shell] + shellArgs + [command] }
 }
 
+public struct PortScanRules: Sendable, Equatable {
+    public static let systemProcessNames: Set<String> = [
+        "AirPlayXPCHelper",
+        "ControlCenter",
+        "rapportd",
+        "remoted",
+        "sharingd",
+    ]
+
+    public static let `default` = PortScanRules()
+
+    public let enabled: Bool
+    public let ignoredPorts: Set<Int>
+    public let ignoredProcessNames: Set<String>
+
+    public init(
+        enabled: Bool = true, ignoredPorts: Set<Int> = [], ignoredProcessNames: Set<String> = []
+    ) {
+        self.enabled = enabled
+        self.ignoredPorts = ignoredPorts
+        self.ignoredProcessNames = ignoredProcessNames
+    }
+
+    public func ignores(port: Int, processName: String) -> Bool {
+        ignoredPorts.contains(port)
+            || ignoredProcessNames.contains(processName)
+            || Self.systemProcessNames.contains(processName)
+    }
+}
+
 public struct Defaults: Sendable {
     public static let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
     public static let shellArgs = ["-lc"]
@@ -90,10 +140,14 @@ public struct Defaults: Sendable {
 public struct Config: Sendable {
     public let services: [ResolvedService]
     public let warnings: [String]
+    public let scan: PortScanRules
 
-    public init(services: [ResolvedService], warnings: [String] = []) {
+    public init(
+        services: [ResolvedService], warnings: [String] = [], scan: PortScanRules = .default
+    ) {
         self.services = services
         self.warnings = warnings
+        self.scan = scan
     }
 
     public func service(named name: String) -> ResolvedService? {
@@ -161,113 +215,218 @@ public enum ConfigLoader {
     }
 
     static func resolve(_ file: ConfigFile) throws -> Config {
-        let specs = file.service ?? []
-        guard !specs.isEmpty else {
-            throw ConfigError.invalid(service: nil, reason: "no [[service]] entries defined")
+        var entries: [(spec: ServiceSpec, project: String?, projectCwd: String?)] = []
+        var projectNames: [String] = []
+
+        for spec in file.service ?? [] {
+            entries.append((spec, nil, nil))
         }
 
-        let d = file.defaults
-        var seen = Set<String>()
-        var resolved: [ResolvedService] = []
-        var warnings: [String] = []
-
-        for spec in specs {
-            let name = spec.name.trimmingCharacters(in: .whitespaces)
+        for project in file.project ?? [] {
+            let name = project.name.trimmingCharacters(in: .whitespaces)
             guard !name.isEmpty else {
-                throw ConfigError.invalid(service: nil, reason: "a service has an empty name")
+                throw ConfigError.invalid(service: nil, reason: "a project has an empty name")
             }
             guard name.unicodeScalars.allSatisfy({ allowedNameCharacters.contains($0) }) else {
                 throw ConfigError.invalid(
-                    service: name,
-                    reason: "name may only contain letters, digits, dot, dash and underscore"
+                    service: nil,
+                    reason: "project \"\(name)\": name may only contain letters, digits, dot, "
+                        + "dash and underscore"
                 )
             }
-            guard seen.insert(name).inserted else {
-                throw ConfigError.invalid(service: name, reason: "duplicate service name")
-            }
-            guard !spec.command.trimmingCharacters(in: .whitespaces).isEmpty else {
-                throw ConfigError.invalid(service: name, reason: "command is empty")
-            }
-
-            let cwd = expandTilde(spec.cwd)
-            guard cwd.hasPrefix("/") else {
+            guard !projectNames.contains(name) else {
                 throw ConfigError.invalid(
-                    service: name,
-                    reason: "cwd must be absolute or start with ~ (got \"\(spec.cwd)\")"
-                )
+                    service: nil, reason: "duplicate project name \"\(name)\"")
             }
-            var isDir: ObjCBool = false
-            if !FileManager.default.fileExists(atPath: cwd, isDirectory: &isDir) {
-                warnings.append("service \"\(name)\": cwd does not exist: \(cwd)")
-            } else if !isDir.boolValue {
-                warnings.append("service \"\(name)\": cwd is not a directory: \(cwd)")
+            projectNames.append(name)
+
+            var projectCwd: String?
+            if let cwd = project.cwd {
+                let expanded = expandTilde(cwd)
+                guard expanded.hasPrefix("/") else {
+                    throw ConfigError.invalid(
+                        service: nil,
+                        reason: "project \"\(name)\": cwd must be absolute or start with ~ "
+                            + "(got \"\(cwd)\")"
+                    )
+                }
+                projectCwd = expanded
             }
 
-            let stopTimeout = spec.stopTimeout ?? d?.stopTimeout ?? Defaults.stopTimeout
-            guard stopTimeout > 0 else {
-                throw ConfigError.invalid(service: name, reason: "stop_timeout must be > 0")
+            let services = project.service ?? []
+            guard !services.isEmpty else {
+                throw ConfigError.invalid(
+                    service: nil,
+                    reason: "project \"\(name)\" has no [[project.service]] entries")
             }
-            let restartGrace = spec.restartGrace ?? d?.restartGrace ?? Defaults.restartGrace
-            guard restartGrace >= 0 else {
-                throw ConfigError.invalid(service: name, reason: "restart_grace must be >= 0")
+            for spec in services {
+                entries.append((spec, name, projectCwd))
             }
-            if let port = spec.port, !(1...65535).contains(port) {
+        }
+
+        guard !entries.isEmpty else {
+            throw ConfigError.invalid(service: nil, reason: "no [[service]] entries defined")
+        }
+
+        var seen = Set<String>()
+        var portOwners: [String: [Int: String]] = [:]
+        var resolved: [ResolvedService] = []
+        var warnings: [String] = []
+
+        for entry in entries {
+            let service = try resolveService(
+                entry.spec, project: entry.project, projectCwd: entry.projectCwd,
+                defaults: file.defaults, warnings: &warnings)
+
+            guard seen.insert(service.name).inserted else {
+                throw ConfigError.invalid(service: service.name, reason: "duplicate service name")
+            }
+            if let port = service.port {
+                let group = entry.project ?? ""
+                if let owner = portOwners[group]?[port] {
+                    warnings.append(
+                        "services \"\(owner)\" and \"\(service.name)\" both declare port \(port) "
+                            + "— only one of them can run at a time")
+                } else {
+                    portOwners[group, default: [:]][port] = service.name
+                }
+            }
+            resolved.append(service)
+        }
+
+        for project in projectNames where seen.contains(project) {
+            throw ConfigError.invalid(
+                service: nil, reason: "\"\(project)\" is both a project and a service name")
+        }
+
+        return Config(services: resolved, warnings: warnings, scan: try scanRules(file.scan))
+    }
+
+    static func resolveService(
+        _ spec: ServiceSpec, project: String?, projectCwd: String?,
+        defaults: DefaultsSpec?, warnings: inout [String]
+    ) throws -> ResolvedService {
+        let shortName = spec.name.trimmingCharacters(in: .whitespaces)
+        guard !shortName.isEmpty else {
+            throw ConfigError.invalid(service: nil, reason: "a service has an empty name")
+        }
+        guard shortName.unicodeScalars.allSatisfy({ allowedNameCharacters.contains($0) }) else {
+            throw ConfigError.invalid(
+                service: shortName,
+                reason: "name may only contain letters, digits, dot, dash and underscore"
+            )
+        }
+        let name = ServiceName.qualified(project: project, name: shortName)
+        guard !spec.command.trimmingCharacters(in: .whitespaces).isEmpty else {
+            throw ConfigError.invalid(service: name, reason: "command is empty")
+        }
+
+        let cwd = try resolveCwd(spec.cwd, projectCwd: projectCwd, service: name)
+        var isDir: ObjCBool = false
+        if !FileManager.default.fileExists(atPath: cwd, isDirectory: &isDir) {
+            warnings.append("service \"\(name)\": cwd does not exist: \(cwd)")
+        } else if !isDir.boolValue {
+            warnings.append("service \"\(name)\": cwd is not a directory: \(cwd)")
+        }
+
+        let stopTimeout = spec.stopTimeout ?? defaults?.stopTimeout ?? Defaults.stopTimeout
+        guard stopTimeout > 0 else {
+            throw ConfigError.invalid(service: name, reason: "stop_timeout must be > 0")
+        }
+        let restartGrace = spec.restartGrace ?? defaults?.restartGrace ?? Defaults.restartGrace
+        guard restartGrace >= 0 else {
+            throw ConfigError.invalid(service: name, reason: "restart_grace must be >= 0")
+        }
+        if let port = spec.port {
+            guard (1...65535).contains(port) else {
                 throw ConfigError.invalid(service: name, reason: "port \(port) is out of range")
             }
+        }
 
-            var health: ResolvedHealth?
-            if let h = spec.health {
-                guard let kind = HealthKind(rawValue: h.type.lowercased()) else {
-                    throw ConfigError.invalid(
-                        service: name,
-                        reason: "health.type must be \"tcp\" or \"http\" (got \"\(h.type)\")"
-                    )
-                }
-                guard let hp = h.port ?? spec.port else {
-                    throw ConfigError.invalid(
-                        service: name,
-                        reason: "health check needs a port — set health.port or the service's port"
-                    )
-                }
-                guard (1...65535).contains(hp) else {
-                    throw ConfigError.invalid(
-                        service: name, reason: "health.port \(hp) is out of range")
-                }
-                let interval = h.interval ?? Defaults.healthInterval
-                let timeout = h.timeout ?? Defaults.healthTimeout
-                guard interval > 0, timeout > 0 else {
-                    throw ConfigError.invalid(
-                        service: name,
-                        reason: "health.interval and health.timeout must be > 0"
-                    )
-                }
-                health = ResolvedHealth(
-                    kind: kind,
-                    port: hp,
-                    path: h.path ?? Defaults.healthPath,
-                    interval: interval,
-                    timeout: timeout
+        var health: ResolvedHealth?
+        if let h = spec.health {
+            guard let kind = HealthKind(rawValue: h.type.lowercased()) else {
+                throw ConfigError.invalid(
+                    service: name,
+                    reason: "health.type must be \"tcp\" or \"http\" (got \"\(h.type)\")"
                 )
             }
-
-            resolved.append(
-                ResolvedService(
-                    name: name,
-                    cwd: cwd,
-                    command: spec.command,
-                    port: spec.port,
-                    autostart: spec.autostart ?? false,
-                    env: spec.env ?? [:],
-                    shell: expandTilde(spec.shell ?? d?.shell ?? Defaults.shell),
-                    shellArgs: spec.shellArgs ?? d?.shellArgs ?? Defaults.shellArgs,
-                    stopTimeout: stopTimeout,
-                    restartGrace: restartGrace,
-                    health: health
+            guard let healthPort = h.port ?? spec.port else {
+                throw ConfigError.invalid(
+                    service: name,
+                    reason: "health check needs a port — set health.port or the service's port"
                 )
+            }
+            guard (1...65535).contains(healthPort) else {
+                throw ConfigError.invalid(
+                    service: name, reason: "health.port \(healthPort) is out of range")
+            }
+            let interval = h.interval ?? Defaults.healthInterval
+            let timeout = h.timeout ?? Defaults.healthTimeout
+            guard interval > 0, timeout > 0 else {
+                throw ConfigError.invalid(
+                    service: name,
+                    reason: "health.interval and health.timeout must be > 0"
+                )
+            }
+            health = ResolvedHealth(
+                kind: kind,
+                port: healthPort,
+                path: h.path ?? Defaults.healthPath,
+                interval: interval,
+                timeout: timeout
             )
         }
 
-        return Config(services: resolved, warnings: warnings)
+        return ResolvedService(
+            name: name,
+            cwd: cwd,
+            command: spec.command,
+            port: spec.port,
+            autostart: spec.autostart ?? false,
+            env: spec.env ?? [:],
+            shell: expandTilde(spec.shell ?? defaults?.shell ?? Defaults.shell),
+            shellArgs: spec.shellArgs ?? defaults?.shellArgs ?? Defaults.shellArgs,
+            stopTimeout: stopTimeout,
+            restartGrace: restartGrace,
+            health: health
+        )
+    }
+
+    static func resolveCwd(_ raw: String?, projectCwd: String?, service: String) throws -> String {
+        guard let raw, !raw.trimmingCharacters(in: .whitespaces).isEmpty else {
+            guard let projectCwd else {
+                throw ConfigError.invalid(
+                    service: service,
+                    reason: "cwd is required — set it on the service or on its project")
+            }
+            return projectCwd
+        }
+        let expanded = expandTilde(raw)
+        if expanded.hasPrefix("/") { return expanded }
+        guard let projectCwd else {
+            throw ConfigError.invalid(
+                service: service,
+                reason: "cwd must be absolute or start with ~ (got \"\(raw)\")"
+            )
+        }
+        return URL(
+            fileURLWithPath: expanded,
+            relativeTo: URL(fileURLWithPath: projectCwd, isDirectory: true)
+        ).standardizedFileURL.path
+    }
+
+    static func scanRules(_ spec: ScanSpec?) throws -> PortScanRules {
+        guard let spec else { return .default }
+        for port in spec.ignorePorts ?? [] where !(1...65535).contains(port) {
+            throw ConfigError.invalid(
+                service: nil, reason: "scan.ignore_ports: port \(port) is out of range")
+        }
+        return PortScanRules(
+            enabled: spec.enabled ?? true,
+            ignoredPorts: Set(spec.ignorePorts ?? []),
+            ignoredProcessNames: Set(spec.ignoreProcesses ?? [])
+        )
     }
 
     public static func expandTilde(_ path: String) -> String {

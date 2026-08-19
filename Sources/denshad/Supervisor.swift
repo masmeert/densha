@@ -51,6 +51,11 @@ actor Supervisor {
     private var eventBroker = EventBroker()
     private var exitWaiters: [String: [CheckedContinuation<Void, Never>]] = [:]
     private var idleFlushTask: Task<Void, Never>?
+    private var portScanTask: Task<Void, Never>?
+    private var listeningPorts: [ScannedPort] = []
+    private var scannedPorts: [ScannedPort] = []
+
+    static let portScanInterval: Duration = .seconds(4)
 
     init(config: Config) {
         self.config = config
@@ -100,6 +105,7 @@ actor Supervisor {
         let new = try ConfigLoader.load()
         adoptConfig(new)
         broadcast(.reloaded(services: snapshot(), warnings: new.warnings))
+        _ = filterListeningPorts()
         return new.warnings
     }
 
@@ -107,9 +113,11 @@ actor Supervisor {
 
     func bootstrap() async {
         startIdleFlusher()
+        startPortScanner()
         let autos = config.services.filter(\.autostart).map(\.name)
-        if !autos.isEmpty {
-            _ = await start(names: autos)
+        guard !autos.isEmpty else { return }
+        for (name, reason) in await start(names: autos).sorted(by: { $0.key < $1.key }) {
+            log("autostart \(name): \(reason)")
         }
     }
 
@@ -117,18 +125,66 @@ actor Supervisor {
         order.compactMap { status[$0] }
     }
 
-    func start(names: [String]?) async -> [String: String] {
-        var errors: [String: String] = [:]
-        if let names, names.contains(where: { config.service(named: $0) == nil }) {
-            _ = try? reload()
+    func portsSnapshot() -> [ScannedPort] { scannedPorts }
+
+    func rescanPorts() async -> [ScannedPort] {
+        guard config.scan.enabled else {
+            listeningPorts = []
+            return filterListeningPorts()
         }
-        for name in resolve(names) {
+        let listening = await Task.detached(priority: .utility) {
+            PortScanner.listeningPorts()
+        }.value
+        listeningPorts = listening
+        return filterListeningPorts()
+    }
+
+    private func startPortScanner() {
+        portScanTask?.cancel()
+        portScanTask = Task { [weak self] in
+            while !Task.isCancelled {
+                _ = await self?.rescanPorts()
+                try? await Task.sleep(for: Self.portScanInterval)
+            }
+        }
+    }
+
+    @discardableResult
+    private func filterListeningPorts() -> [ScannedPort] {
+        let unclaimed = PortScanner.unclaimed(
+            among: listeningPorts, services: snapshot(), rules: config.scan)
+        guard unclaimed != scannedPorts else { return scannedPorts }
+        scannedPorts = unclaimed
+        broadcast(.ports(unclaimed))
+        return unclaimed
+    }
+
+    func start(names: [String]?) async -> [String: String] {
+        var targets = resolveTargets(names)
+        if !targets.errors.isEmpty {
+            _ = try? reload()
+            targets = resolveTargets(names)
+        }
+        var errors = targets.errors
+
+        _ = await stopServicesHoldingPorts(of: targets.names)
+
+        var portClaimants: [Int: String] = [:]
+        for name in targets.names {
+            if let proc = procs[name], !proc.reaped { continue }
             guard let svc = config.service(named: name) else {
                 errors[name] = "no such service"
                 continue
             }
-            if let existing = procs[name], !existing.reaped {
-                continue
+            if let port = svc.port {
+                if let claimant = portClaimants[port] {
+                    let reason =
+                        "port \(port) is also declared by \(claimant) — start one at a time"
+                    errors[name] = reason
+                    note(name, reason)
+                    continue
+                }
+                portClaimants[port] = name
             }
             do {
                 try spawn(svc)
@@ -139,10 +195,7 @@ actor Supervisor {
                 s.pid = nil
                 s.pgid = nil
                 status[name] = s
-                if let store = stores[name] {
-                    let line = store.ingest(Data("densha: \(error)\r\n".utf8))
-                    for entry in line { broadcastLog(name: name, line: entry) }
-                }
+                note(name, "\(error)")
             }
         }
         broadcastStatus()
@@ -317,10 +370,10 @@ actor Supervisor {
     }
 
     func stop(names: [String]?) async -> [String: String] {
-        var errors: [String: String] = [:]
-        let targets = resolve(names)
+        let targets = resolveTargets(names)
+        var errors = targets.errors
         await withTaskGroup(of: Void.self) { group in
-            for name in targets {
+            for name in targets.names {
                 guard config.service(named: name) != nil || procs[name] != nil else {
                     errors[name] = "no such service"
                     continue
@@ -370,18 +423,20 @@ actor Supervisor {
     }
 
     func restart(names: [String]?) async -> [String: String] {
-        let targets = resolve(names)
-        _ = await stop(names: targets)
-        let grace = targets.compactMap { config.service(named: $0)?.restartGrace }.max()
+        let targets = resolveTargets(names)
+        guard targets.errors.isEmpty else { return targets.errors }
+        _ = await stop(names: targets.names)
+        let grace = targets.names.compactMap { config.service(named: $0)?.restartGrace }.max()
         if let grace, grace > 0 {
             try? await Task.sleep(for: .milliseconds(grace))
         }
-        return await start(names: targets)
+        return await start(names: targets.names)
     }
 
     func stopAll() async {
         _ = await stop(names: nil)
         idleFlushTask?.cancel()
+        portScanTask?.cancel()
     }
 
     private func runHealthLoop(service name: String, health: ResolvedHealth) async {
@@ -422,13 +477,14 @@ actor Supervisor {
     }
 
     func logLines(name: String, tail: Int?) throws -> [LogLine] {
-        guard let store = stores[name] else {
+        guard let store = stores[try resolveOne(name)] else {
             throw DenshaError.noSuchService(name)
         }
         return store.tail(tail)
     }
 
     func sendInput(name: String, data: String) throws {
+        let name = try resolveOne(name)
         guard let proc = procs[name], !proc.reaped else {
             throw DenshaError.serviceNotRunning(name)
         }
@@ -478,6 +534,7 @@ actor Supervisor {
 
     private func broadcastStatus() {
         broadcast(.status(snapshot()))
+        filterListeningPorts()
     }
 
     private func broadcast(_ event: DaemonEvent) {
@@ -488,8 +545,81 @@ actor Supervisor {
         eventBroker.broadcastLog(name: name, line: line)
     }
 
-    private func resolve(_ names: [String]?) -> [String] {
-        guard let names, !names.isEmpty else { return order }
-        return names
+    struct Targets {
+        var names: [String] = []
+        var errors: [String: String] = [:]
     }
+
+    func resolveTargets(_ requested: [String]?) -> Targets {
+        guard let requested, !requested.isEmpty else { return Targets(names: order) }
+        var targets = Targets()
+        for target in requested {
+            if order.contains(target) {
+                if !targets.names.contains(target) { targets.names.append(target) }
+                continue
+            }
+            let project = order.filter { ServiceName.project(of: $0) == target }
+            if !project.isEmpty {
+                for name in project where !targets.names.contains(name) {
+                    targets.names.append(name)
+                }
+                continue
+            }
+            let matches = order.filter { ServiceName.short(of: $0) == target }
+            switch matches.count {
+            case 0:
+                targets.errors[target] = "no such service"
+            case 1:
+                if !targets.names.contains(matches[0]) { targets.names.append(matches[0]) }
+            default:
+                targets.errors[target] =
+                    "ambiguous — did you mean "
+                    + matches.joined(separator: ", ") + "?"
+            }
+        }
+        return targets
+    }
+
+    func resolveOne(_ target: String) throws -> String {
+        let targets = resolveTargets([target])
+        guard targets.errors[target] == nil else {
+            let matches = order.filter { ServiceName.short(of: $0) == target }
+            guard !matches.isEmpty else { throw DenshaError.noSuchService(target) }
+            throw DenshaError.ambiguousTarget(target, matches: matches)
+        }
+        guard targets.names.count == 1, let name = targets.names.first else {
+            throw DenshaError.ambiguousTarget(target, matches: targets.names)
+        }
+        return name
+    }
+
+    private func stopServicesHoldingPorts(of targets: [String]) async -> [String] {
+        let wanted = Set(targets.compactMap { config.service(named: $0)?.port })
+        guard !wanted.isEmpty else { return [] }
+        let holders = order.filter { name in
+            guard !targets.contains(name), let proc = procs[name], !proc.reaped else {
+                return false
+            }
+            guard let port = config.service(named: name)?.port else { return false }
+            return wanted.contains(port)
+        }
+        guard !holders.isEmpty else { return [] }
+
+        for name in holders {
+            guard let port = config.service(named: name)?.port,
+                let claimant = targets.first(where: { config.service(named: $0)?.port == port })
+            else { continue }
+            note(name, "stopping to free port \(port) for \(claimant)")
+        }
+        _ = await stop(names: holders)
+        return holders
+    }
+
+    private func note(_ service: String, _ message: String) {
+        guard let store = stores[service] else { return }
+        for line in store.ingest(Data("densha: \(message)\r\n".utf8)) {
+            broadcastLog(name: service, line: line)
+        }
+    }
+
 }

@@ -7,6 +7,8 @@ public struct MenuPanel: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openWindow) private var openWindow
 
+    private static let visiblePortRows = 6
+
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
@@ -60,7 +62,12 @@ public struct MenuPanel: View {
             if model.services.isEmpty {
                 emptyState
             } else {
-                serviceList
+                ForEach(model.groups) { group in
+                    serviceList(group)
+                }
+            }
+            if !model.scannedPorts.isEmpty {
+                scannedPortSection
             }
         }
 
@@ -83,9 +90,16 @@ public struct MenuPanel: View {
         }
     }
 
-    private var serviceList: some View {
-        VStack(spacing: 2) {
-            ForEach(model.services) { service in
+    private func serviceList(_ group: AppModel.ServiceGroup) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            GroupHeader(
+                project: group.project,
+                canStart: !group.allLive,
+                canStop: group.anyLive,
+                onStart: { model.start(group) },
+                onStop: { model.stop(group) }
+            )
+            ForEach(group.services) { service in
                 ServiceRow(
                     service: service,
                     busy: model.busy.contains(service.name),
@@ -94,6 +108,40 @@ public struct MenuPanel: View {
                     onShowLogs: { showLogs(service.name) }
                 )
             }
+        }
+    }
+
+    private var scannedPortSection: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                Text("Other ports")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.tertiary)
+                Text("\(model.scannedPorts.count)")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.quaternary)
+                    .monospacedDigit()
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+            .padding(.bottom, 2)
+            .help("Listening ports that no service in services.toml claims")
+
+            ScrollView(.vertical) {
+                VStack(spacing: 2) {
+                    ForEach(model.scannedPorts) { scanned in
+                        ScannedPortRow(
+                            scanned: scanned,
+                            onOpen: { model.openInBrowser(scanned) },
+                            onCopyURL: {
+                                model.copyToClipboard("http://localhost:\(scanned.port)")
+                            }
+                        )
+                    }
+                }
+            }
+            .frame(height: CGFloat(min(model.scannedPorts.count, Self.visiblePortRows)) * 30 - 2)
+            .scrollBounceBehavior(.basedOnSize)
         }
     }
 
@@ -131,11 +179,6 @@ public struct MenuPanel: View {
     private var footer: some View {
         HStack(spacing: 8) {
             FooterButton(
-                title: "Start all", systemImage: "play.fill",
-                disabled: model.services.allSatisfy(\.isLive) || model.services.isEmpty
-            ) { model.startAll() }
-
-            FooterButton(
                 title: "Stop all", systemImage: "stop.fill",
                 disabled: !model.anyLive
             ) { model.stopAll() }
@@ -156,6 +199,57 @@ public struct MenuPanel: View {
         openWindow(id: LogWindowID.value)
         NSApp.activate(ignoringOtherApps: true)
         MenuBarPanel.dismiss()
+    }
+}
+
+private struct GroupHeader: View {
+    let project: String?
+    let canStart: Bool
+    let canStop: Bool
+    let onStart: () -> Void
+    let onStop: () -> Void
+
+    @State private var hovering = false
+
+    private var title: String { project ?? "Services" }
+    private var subject: String { project ?? "every ungrouped service" }
+
+    var body: some View {
+        HStack(spacing: 2) {
+            Text(title)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+
+            Spacer(minLength: 6)
+
+            Button(action: onStart) {
+                Image(systemName: "play.fill")
+                    .font(.system(size: 9, weight: .semibold))
+            }
+            .buttonStyle(IconButtonStyle())
+            .disabled(!canStart)
+            .opacity(canStart ? 1 : 0.3)
+            .help("Start \(subject)")
+            .accessibilityLabel("Start \(subject)")
+
+            Button(action: onStop) {
+                Image(systemName: "stop.fill")
+                    .font(.system(size: 9, weight: .semibold))
+            }
+            .buttonStyle(IconButtonStyle())
+            .disabled(!canStop)
+            .opacity(canStop ? 1 : 0.3)
+            .help("Stop \(subject)")
+            .accessibilityLabel("Stop \(subject)")
+        }
+        .opacity(hovering ? 1 : 0.85)
+        .padding(.leading, 12)
+        .padding(.trailing, 8)
+        .padding(.top, 6)
+        .padding(.bottom, 1)
+        .onHover { hovering = $0 }
     }
 }
 
@@ -196,7 +290,12 @@ private struct FooterButton: View {
 
     #Preview("Panel — all stopped") {
         MenuPanel().environment(
-            AppModel.preview(services: [Sample.worker, Sample.broken]))
+            AppModel.preview(services: [Sample.worker, Sample.otherWeb]))
+    }
+
+    #Preview("Panel — scanned ports") {
+        MenuPanel().environment(
+            AppModel.preview(scannedPorts: Sample.scannedPorts))
     }
 
     #Preview("Panel — no services") {
