@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Added
+- Projects fold away: click a group header to collapse it, and it stays folded across launches. A collapsed project keeps its service count and shows the most restrictive signal among its members, so a failure cannot hide behind a fold.
+
 ### Changed
 - Service status is now a three-aspect railway signal rather than a coloured dot, so state reads from lamp position as well as colour.
 - Ports are shown as platform signs, and roll to the new number when a port changes.

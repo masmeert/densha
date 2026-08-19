@@ -9,6 +9,7 @@ public struct MenuPanel: View {
     private let updater = Updater.shared
 
     @AppStorage("scannedPortsExpanded") private var scannedPortsExpanded = false
+    @AppStorage("collapsedGroups") private var collapsedGroupsData = Data()
     @State private var hoveringScannedPortsHeader = false
 
     private static let visiblePortRows = 6
@@ -101,24 +102,45 @@ public struct MenuPanel: View {
     }
 
     private func serviceList(_ group: AppModel.ServiceGroup) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        let expanded = !collapsedGroups.contains(group.id)
+
+        return VStack(alignment: .leading, spacing: 2) {
             GroupHeader(
                 project: group.project,
+                count: group.services.count,
+                aspect: SignalAspect(worstOf: group.services),
+                expanded: expanded,
                 canStart: !group.allLive,
                 canStop: group.anyLive,
+                onToggle: { toggleCollapsed(group) },
                 onStart: { model.start(group) },
                 onStop: { model.stop(group) }
             )
-            ForEach(group.services) { service in
-                ServiceRow(
-                    service: service,
-                    busy: model.busy.contains(service.name),
-                    onToggle: { model.toggle(service) },
-                    onRestart: { model.restart(service.name) },
-                    onShowLogs: { showLogs(service.name) }
-                )
+            if expanded {
+                ForEach(group.services) { service in
+                    ServiceRow(
+                        service: service,
+                        busy: model.busy.contains(service.name),
+                        onToggle: { model.toggle(service) },
+                        onRestart: { model.restart(service.name) },
+                        onShowLogs: { showLogs(service.name) }
+                    )
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        .clipped()
+    }
+
+    private var collapsedGroups: Set<String> {
+        (try? JSONDecoder().decode(Set<String>.self, from: collapsedGroupsData)) ?? []
+    }
+
+    private func toggleCollapsed(_ group: AppModel.ServiceGroup) {
+        var collapsed = collapsedGroups
+        collapsed.formSymmetricDifference([group.id])
+        guard let encoded = try? JSONEncoder().encode(collapsed) else { return }
+        withAnimation(.easeOut(duration: 0.18)) { collapsedGroupsData = encoded }
     }
 
     private var scannedPortSection: some View {
@@ -235,25 +257,57 @@ public struct MenuPanel: View {
 
 private struct GroupHeader: View {
     let project: String?
+    let count: Int
+    let aspect: SignalAspect
+    let expanded: Bool
     let canStart: Bool
     let canStop: Bool
+    let onToggle: () -> Void
     let onStart: () -> Void
     let onStop: () -> Void
 
     @State private var hovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var title: String { project ?? "Services" }
     private var subject: String { project ?? "every ungrouped service" }
 
     var body: some View {
         HStack(spacing: 2) {
-            Text(title)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.tertiary)
-                .lineLimit(1)
-                .truncationMode(.middle)
+            Button(action: onToggle) {
+                HStack(spacing: 5) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(expanded ? 90 : 0))
 
-            Spacer(minLength: 6)
+                    Text(title)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+
+                    Text("\(count)")
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.quaternary)
+                        .monospacedDigit()
+
+                    if !expanded {
+                        SignalHead(
+                            aspect: aspect, orientation: .horizontal, animate: !reduceMotion)
+                    }
+
+                    Spacer(minLength: 6)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(expanded ? "Hide \(subject)" : "Show \(subject)")
+            .accessibilityLabel(title)
+            .accessibilityValue(
+                expanded
+                    ? "Expanded, \(count) services"
+                    : "Collapsed, \(count) services, signal \(aspect.description)")
 
             Button(action: onStart) {
                 Image(systemName: "play.fill")
