@@ -18,5 +18,6 @@ xcuserdata/
 .env.*
 *.pem
 *.p12
+*.p8
 *.mobileprovision
 *.provisionprofile
