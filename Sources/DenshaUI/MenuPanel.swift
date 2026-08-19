@@ -43,6 +43,7 @@ public struct MenuPanel: View {
                 Divider()
                 Button("Check for Updates…") { updater.checkForUpdates() }
                     .disabled(!updater.canCheckForUpdates)
+                Button("Densha on GitHub") { model.openProjectPage() }
                 Divider()
                 Button("Quit Densha") { NSApp.terminate(nil) }
             } label: {

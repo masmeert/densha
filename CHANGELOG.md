@@ -9,6 +9,7 @@
 ### Added
 - Added self-updating through Sparkle, with an EdDSA-signed appcast and a "Check for Updates…" menu item.
 - Added project grouping to the menu, with unclaimed listening ports shown separately and collapsed by default.
+- Added a "Densha on GitHub" menu item beside "Check for Updates…".
 
 ### Changed
 - Trimmed the readme and renamed the example project.

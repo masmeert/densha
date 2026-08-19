@@ -22,6 +22,17 @@ struct AppModelTests {
         #expect(model.services == [service])
     }
 
+    @Test("the project page opens in the browser")
+    func projectPageOpens() async {
+        let actions = FakeApplicationActions()
+        let model = AppModel(daemon: FakeDaemonService(), applicationActions: actions)
+
+        model.openProjectPage()
+
+        #expect(
+            actions.openedURLs.map(\.absoluteString) == ["https://github.com/masmeert/densha"])
+    }
+
     @Test("scanned ports arrive from the daemon and open in the browser")
     func scannedPortsAreShownAndOpened() async {
         let daemon = FakeDaemonService()

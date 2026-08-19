@@ -2,6 +2,8 @@ import DenshaCore
 import Foundation
 import Observation
 
+private let projectPage = URL(string: "https://github.com/masmeert/densha")!
+
 @MainActor
 @Observable
 public final class AppModel {
@@ -156,6 +158,10 @@ public final class AppModel {
     func openInBrowser(_ scanned: ScannedPort) {
         guard let url = URL(string: "http://localhost:\(scanned.port)") else { return }
         applicationActions.open(url)
+    }
+
+    func openProjectPage() {
+        applicationActions.open(projectPage)
     }
 
     func revealInFinder(_ service: ServiceStatus) {
