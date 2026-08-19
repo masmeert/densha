@@ -42,20 +42,13 @@ final class RunningProcess {
     }
 }
 
-struct Subscriber {
-    let id: UUID
-    let wantsStatus: Bool
-    let logFilter: String?
-    let continuation: AsyncStream<Event>.Continuation
-}
-
 actor Supervisor {
     private var config: Config
     private var status: [String: ServiceStatus] = [:]
     private var order: [String] = []
     private var procs: [String: RunningProcess] = [:]
     private var stores: [String: LogStore] = [:]
-    private var subscribers: [UUID: Subscriber] = [:]
+    private var eventBroker = EventBroker()
     private var exitWaiters: [String: [CheckedContinuation<Void, Never>]] = [:]
     private var idleFlushTask: Task<Void, Never>?
 
@@ -106,7 +99,7 @@ actor Supervisor {
     func reload() throws -> [String] {
         let new = try ConfigLoader.load()
         adoptConfig(new)
-        broadcast(Event(event: .reloaded, services: snapshot()))
+        broadcast(.reloaded(services: snapshot(), warnings: new.warnings))
         return new.warnings
     }
 
@@ -474,35 +467,25 @@ actor Supervisor {
         }
     }
 
-    func subscribe(status wantsStatus: Bool, logFilter: String?) -> (UUID, AsyncStream<Event>) {
-        let id = UUID()
-        let (stream, continuation) = AsyncStream<Event>.makeStream(
-            of: Event.self, bufferingPolicy: .bufferingNewest(4096))
-        subscribers[id] = Subscriber(
-            id: id, wantsStatus: wantsStatus, logFilter: logFilter, continuation: continuation)
-        return (id, stream)
+    func subscribe(status wantsStatus: Bool, logFilter: String?) -> (UUID, AsyncStream<DaemonEvent>)
+    {
+        eventBroker.subscribe(status: wantsStatus, logFilter: logFilter)
     }
 
     func unsubscribe(_ id: UUID) {
-        subscribers[id]?.continuation.finish()
-        subscribers.removeValue(forKey: id)
+        eventBroker.unsubscribe(id)
     }
 
     private func broadcastStatus() {
-        broadcast(Event(event: .status, services: snapshot()))
+        broadcast(.status(snapshot()))
     }
 
-    private func broadcast(_ event: Event) {
-        for sub in subscribers.values where sub.wantsStatus {
-            sub.continuation.yield(event)
-        }
+    private func broadcast(_ event: DaemonEvent) {
+        eventBroker.broadcast(event)
     }
 
     private func broadcastLog(name: String, line: LogLine) {
-        for sub in subscribers.values {
-            guard let filter = sub.logFilter, filter == name || filter == "*" else { continue }
-            sub.continuation.yield(Event(event: .log, name: name, line: line))
-        }
+        eventBroker.broadcastLog(name: name, line: line)
     }
 
     private func resolve(_ names: [String]?) -> [String] {

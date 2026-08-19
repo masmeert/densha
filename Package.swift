@@ -6,6 +6,7 @@ let package = Package(
     platforms: [.macOS(.v26)],
     products: [
         .library(name: "DenshaCore", targets: ["DenshaCore"]),
+        .library(name: "DenshaDaemon", targets: ["DenshaDaemon"]),
         .library(name: "DenshaUI", targets: ["DenshaUI"]),
         .executable(name: "denshad", targets: ["denshad"]),
         .executable(name: "densha", targets: ["denshacli"]),
@@ -20,7 +21,16 @@ let package = Package(
             name: "DenshaCore",
             dependencies: [.product(name: "TOMLDecoder", package: "TOMLDecoder")]
         ),
-        .executableTarget(name: "denshad", dependencies: ["DenshaCore"]),
+        .target(
+            name: "DenshaDaemon",
+            dependencies: ["DenshaCore"],
+            path: "Sources/denshad"
+        ),
+        .executableTarget(
+            name: "denshad",
+            dependencies: ["DenshaDaemon"],
+            path: "Sources/denshad-main"
+        ),
         .executableTarget(
             name: "denshacli",
             dependencies: [
@@ -32,5 +42,7 @@ let package = Package(
         .target(name: "DenshaUI", dependencies: ["DenshaCore"]),
         .executableTarget(name: "DenshaApp", dependencies: ["DenshaUI"]),
         .testTarget(name: "DenshaCoreTests", dependencies: ["DenshaCore"]),
+        .testTarget(name: "DenshaDaemonTests", dependencies: ["DenshaDaemon", "DenshaCore"]),
+        .testTarget(name: "DenshaUITests", dependencies: ["DenshaUI", "DenshaCore"]),
     ]
 )

@@ -55,12 +55,30 @@
             warnings: [String] = [],
             lastError: String? = nil
         ) -> AppModel {
-            let model = AppModel()
+            let model = AppModel(
+                daemon: PreviewDaemonService(), applicationActions: PreviewApplicationActions())
             model.services = services
             model.link = link
             model.warnings = warnings
             model.lastError = lastError
             return model
         }
+    }
+
+    private final class PreviewDaemonService: DaemonServing {
+        func events() -> AsyncStream<LinkEvent> {
+            AsyncStream { $0.finish() }
+        }
+
+        func run(_ command: DaemonCommand) async throws -> Response {
+            Response(id: 0, ok: true)
+        }
+
+        func stop() {}
+    }
+
+    private final class PreviewApplicationActions: ApplicationActions {
+        func revealInFinder(path: String) {}
+        func openConfig() throws {}
     }
 #endif

@@ -11,7 +11,7 @@ struct Densha: AsyncParsableCommand {
         version: "0.1.0",
         subcommands: [
             Status.self, Start.self, Stop.self, Restart.self, Logs.self, Send.self,
-            Reload.self, Init.self, Edit.self, DaemonCommand.self, InstallCLI.self,
+            Reload.self, Init.self, Edit.self, DaemonControl.self, InstallCLI.self,
         ],
         defaultSubcommand: Status.self
     )
@@ -175,7 +175,7 @@ struct Start: AsyncParsableCommand {
     func run() async throws {
         let names = try target.resolved()
         try withClient { client in
-            let response = try client.send(.start, names: names)
+            let response = try client.send(.start(names: names))
             printTable(response.services ?? [])
             try reportFailure(response)
         }
@@ -189,7 +189,7 @@ struct Stop: AsyncParsableCommand {
     func run() async throws {
         let names = try target.resolved()
         try withClient { client in
-            let response = try client.send(.stop, names: names)
+            let response = try client.send(.stop(names: names))
             printTable(response.services ?? [])
             try reportFailure(response)
         }
@@ -203,7 +203,7 @@ struct Restart: AsyncParsableCommand {
     func run() async throws {
         let names = try target.resolved()
         try withClient { client in
-            let response = try client.send(.restart, names: names)
+            let response = try client.send(.restart(names: names))
             printTable(response.services ?? [])
             try reportFailure(response)
         }
@@ -220,14 +220,15 @@ struct Logs: AsyncParsableCommand {
 
     func run() async throws {
         try withClient { client in
-            let response = try client.send(
-                .logs, name: name, tail: tail, follow: follow)
+            let response = try client.send(.logs(name: name, tail: tail, follow: follow))
             try reportFailure(response)
             for line in response.lines ?? [] { emit(line) }
 
             guard follow else { return }
             while let message = try client.nextMessage() {
-                if case .event(let event) = message, event.event == .log, let line = event.line {
+                if case .event(let event) = message,
+                    case .log(_, let line) = try event.decoded()
+                {
                     emit(line)
                 }
             }
@@ -261,7 +262,7 @@ struct Send: AsyncParsableCommand {
         var payload = Ansi.unescape(keys)
         if newline { payload += "\n" }
         try withClient { client in
-            try reportFailure(try client.send(.input, name: name, data: payload))
+            try reportFailure(try client.send(.input(name: name, data: payload)))
         }
     }
 }
@@ -324,7 +325,7 @@ struct Edit: AsyncParsableCommand {
     }
 }
 
-struct DaemonCommand: AsyncParsableCommand {
+struct DaemonControl: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "daemon",
         abstract: "Inspect and control the background daemon.",

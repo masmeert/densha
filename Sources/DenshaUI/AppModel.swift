@@ -1,7 +1,5 @@
-import AppKit
 import DenshaCore
 import Observation
-import SwiftUI
 
 @MainActor
 @Observable
@@ -13,14 +11,22 @@ public final class AppModel {
     var selectedLogService: String?
     var busy: Set<String> = []
 
-    private let daemonLink = DaemonLink()
+    private let daemon: any DaemonServing
+    private let applicationActions: any ApplicationActions
     private var consumeTask: Task<Void, Never>?
 
-    public init() {}
+    public convenience init() {
+        self.init(daemon: LiveDaemonService(), applicationActions: MacApplicationActions())
+    }
+
+    init(daemon: any DaemonServing, applicationActions: any ApplicationActions) {
+        self.daemon = daemon
+        self.applicationActions = applicationActions
+    }
 
     public func connect() {
         guard consumeTask == nil else { return }
-        let stream = daemonLink.events()
+        let stream = daemon.events()
         consumeTask = Task { [weak self] in
             for await event in stream {
                 guard let self else { return }
@@ -36,7 +42,7 @@ public final class AppModel {
     public func disconnect() {
         consumeTask?.cancel()
         consumeTask = nil
-        daemonLink.stop()
+        daemon.stop()
     }
 
     private func apply(_ incoming: [ServiceStatus]) {
@@ -60,27 +66,27 @@ public final class AppModel {
         service.isLive ? stop(service.name) : start(service.name)
     }
 
-    func start(_ name: String) { perform(.start, names: [name], marking: [name]) }
-    func stop(_ name: String) { perform(.stop, names: [name], marking: [name]) }
-    func restart(_ name: String) { perform(.restart, names: [name], marking: [name]) }
+    func start(_ name: String) { perform(.start(names: [name]), marking: [name]) }
+    func stop(_ name: String) { perform(.stop(names: [name]), marking: [name]) }
+    func restart(_ name: String) { perform(.restart(names: [name]), marking: [name]) }
 
     func startAll() {
         let names = services.filter { !$0.isLive }.map(\.name)
         guard !names.isEmpty else { return }
-        perform(.start, names: names, marking: names)
+        perform(.start(names: names), marking: names)
     }
 
     func stopAll() {
         let names = services.filter(\.isLive).map(\.name)
         guard !names.isEmpty else { return }
-        perform(.stop, names: names, marking: names)
+        perform(.stop(names: names), marking: names)
     }
 
     func reload() {
         lastError = nil
         Task {
             do {
-                let response = try await Commands.run(.reload)
+                let response = try await daemon.run(.reload)
                 apply(response.services ?? [])
                 warnings = response.warnings ?? []
             } catch {
@@ -92,19 +98,19 @@ public final class AppModel {
     func send(_ keys: String, to name: String) {
         Task {
             do {
-                _ = try await Commands.run(.input, name: name, data: keys)
+                _ = try await daemon.run(.input(name: name, data: keys))
             } catch {
                 lastError = "\(error)"
             }
         }
     }
 
-    private func perform(_ op: Op, names: [String]?, marking: [String]) {
+    private func perform(_ command: DaemonCommand, marking: [String]) {
         lastError = nil
         busy.formUnion(marking)
         Task {
             do {
-                _ = try await Commands.run(op, names: names)
+                _ = try await daemon.run(command)
             } catch {
                 lastError = "\(error)"
             }
@@ -119,15 +125,14 @@ public final class AppModel {
     }
 
     func revealInFinder(_ service: ServiceStatus) {
-        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: service.cwd)
+        applicationActions.revealInFinder(path: service.cwd)
     }
 
     func openConfigInEditor() {
-        let url = Paths.configFile
-        if !FileManager.default.fileExists(atPath: url.path) {
-            try? Paths.createDirectories()
-            try? Template.starter.write(to: url, atomically: true, encoding: .utf8)
+        do {
+            try applicationActions.openConfig()
+        } catch {
+            lastError = "\(error)"
         }
-        NSWorkspace.shared.open(url)
     }
 }
