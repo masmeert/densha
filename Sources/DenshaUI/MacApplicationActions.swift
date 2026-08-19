@@ -39,8 +39,12 @@ final class MacApplicationActions: ApplicationActions {
         }
         guard !sources.isEmpty else { throw DenshaError.noLogFile(service) }
 
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd-HHmmss"
+
         let panel = NSSavePanel()
-        panel.nameFieldStringValue = "\(service).log"
+        panel.nameFieldStringValue = "\(service)-\(formatter.string(from: Date())).log"
         panel.allowedContentTypes = [.log]
         panel.canCreateDirectories = true
         guard panel.runModal() == .OK, let destination = panel.url else { return }
