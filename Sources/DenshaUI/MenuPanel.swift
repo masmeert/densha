@@ -10,13 +10,13 @@ public struct MenuPanel: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
-            Divider().padding(.vertical, 4)
+            Divider()
             content
-            Divider().padding(.vertical, 4)
+                .padding(.vertical, 7)
+            Divider()
             footer
         }
-        .padding(.vertical, 6)
-        .frame(width: 296)
+        .frame(width: 316)
     }
 
     private var header: some View {
@@ -42,10 +42,11 @@ public struct MenuPanel: View {
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
-            .frame(width: 22)
+            .frame(width: 24, height: 24)
             .help("More")
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 14)
+        .frame(height: 38)
     }
 
     @ViewBuilder
@@ -83,7 +84,7 @@ public struct MenuPanel: View {
     }
 
     private var serviceList: some View {
-        VStack(spacing: 1) {
+        VStack(spacing: 2) {
             ForEach(model.services) { service in
                 ServiceRow(
                     service: service,
@@ -128,22 +129,20 @@ public struct MenuPanel: View {
     }
 
     private var footer: some View {
-        VStack(spacing: 2) {
-            HStack(spacing: 6) {
-                FooterButton(
-                    title: "Start all", systemImage: "play.fill",
-                    disabled: model.services.allSatisfy(\.isLive) || model.services.isEmpty
-                ) { model.startAll() }
+        HStack(spacing: 8) {
+            FooterButton(
+                title: "Start all", systemImage: "play.fill",
+                disabled: model.services.allSatisfy(\.isLive) || model.services.isEmpty
+            ) { model.startAll() }
 
-                FooterButton(
-                    title: "Stop all", systemImage: "stop.fill",
-                    disabled: !model.anyLive
-                ) { model.stopAll() }
-            }
-            .padding(.horizontal, 8)
-
-            FooterRow(title: "Logs…", systemImage: "list.bullet.rectangle") { showLogs(nil) }
+            FooterButton(
+                title: "Stop all", systemImage: "stop.fill",
+                disabled: !model.anyLive
+            ) { model.stopAll() }
         }
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+        .padding(.bottom, 10)
     }
 
     private func showLogs(_ service: String?) {
@@ -175,9 +174,9 @@ private struct FooterButton: View {
                 Text(title).font(.system(size: 12))
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 24)
+            .frame(height: 30)
             .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
                     .fill(Color.primary.opacity(hovering && !disabled ? 0.09 : 0.05))
             )
             .contentShape(Rectangle())
@@ -185,37 +184,6 @@ private struct FooterButton: View {
         .buttonStyle(.plain)
         .disabled(disabled)
         .opacity(disabled ? 0.4 : 1)
-        .onHover { hovering = $0 }
-        .animation(.easeOut(duration: 0.14), value: hovering)
-    }
-}
-
-private struct FooterRow: View {
-    let title: String
-    let systemImage: String
-    let action: () -> Void
-
-    @State private var hovering = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 7) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 10))
-                    .frame(width: 12)
-                Text(title).font(.system(size: 12))
-                Spacer()
-            }
-            .padding(.horizontal, 10)
-            .frame(height: 24)
-            .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(Color.primary.opacity(hovering ? 0.06 : 0))
-                    .padding(.horizontal, 4)
-            )
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.14), value: hovering)
     }

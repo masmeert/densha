@@ -71,9 +71,9 @@ struct ServiceRow: View {
     private var actionsVisible: Bool { hovering || focused || busy }
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             Button(action: onShowLogs) {
-                HStack(spacing: 8) {
+                HStack(spacing: 10) {
                     StatusDot(state: service.state, health: service.health, animate: !reduceMotion)
 
                     Text(service.name)
@@ -121,8 +121,8 @@ struct ServiceRow: View {
             .opacity(actionsVisible ? 1 : 0)
             .animation(.easeOut(duration: 0.14), value: actionsVisible)
         }
-        .padding(.horizontal, 10)
-        .frame(height: 28)
+        .padding(.horizontal, 12)
+        .frame(height: 32)
         .background(
             RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .fill(Color.primary.opacity(hovering ? 0.06 : 0))
@@ -154,8 +154,8 @@ struct ServiceRow: View {
                     onToggle: {}, onRestart: {}, onShowLogs: {})
             }
         }
-        .frame(width: 296)
-        .padding(.vertical, 6)
+        .frame(width: 316)
+        .padding(.vertical, 7)
     }
 
     #Preview("Dots") {
