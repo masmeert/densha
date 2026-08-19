@@ -57,6 +57,7 @@ jobs:
             exit 1
           fi
           ./Scripts/sync-version.sh --check
+          ./Scripts/validate-changelog.sh "$VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "build=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
           echo "asset=Densha-$VERSION-universal.zip" >> "$GITHUB_OUTPUT"
@@ -176,16 +177,23 @@ jobs:
         run: |
           set -euo pipefail
           mv dist/Densha.zip "dist/$ASSET"
+          NOTES="$RUNNER_TEMP/release-notes.md"
+          ./Scripts/changelog-section.sh "$VERSION" > "$NOTES"
+          if [ ! -s "$NOTES" ]; then
+            echo "refusing to publish with empty release notes" >&2
+            exit 1
+          fi
           if [ ! -f "dist/$DSYM_ASSET" ]; then
             echo "missing dist/$DSYM_ASSET — dSYMs must ship with the release" >&2
             exit 1
           fi
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --notes-file "$NOTES"
             gh release upload "$GITHUB_REF_NAME" "dist/$ASSET" "dist/$DSYM_ASSET" --clobber
           else
             gh release create "$GITHUB_REF_NAME" \
               --title "Densha $VERSION" \
-              --generate-notes \
+              --notes-file "$NOTES" \
               "dist/$ASSET" "dist/$DSYM_ASSET"
           fi
 

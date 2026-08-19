@@ -42,6 +42,10 @@ fail() {
 }
 
 [ -n "$SIGNATURE" ] || fail "the newest item has no sparkle:edSignature — updates would be rejected"
+
+DESCRIPTION="$(xmllint --xpath "string(//item[1]/description)" "$APPCAST" 2> /dev/null || true)"
+[ -n "$(printf '%s' "$DESCRIPTION" | tr -d '[:space:]')" ] \
+    || fail "the newest item has no release notes — the update dialog would be empty"
 [ "$SHORT_VERSION" = "$MARKETING_VERSION" ] \
     || fail "newest item is $SHORT_VERSION, version.env says $MARKETING_VERSION"
 [ "$BUILD" = "$BUILD_NUMBER" ] \
@@ -58,5 +62,6 @@ echo "appcast OK"
 echo "  newest:  $SHORT_VERSION ($BUILD)"
 echo "  signed:  ${SIGNATURE:0:24}…"
 echo "  url:     $URL"
+echo "  notes:   $(printf '%s' "$DESCRIPTION" | wc -c | tr -d ' ') bytes"
 echo "  items:   $ITEMS"
 echo "  feed:    $SPARKLE_FEED_URL"

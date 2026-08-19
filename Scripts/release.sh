@@ -49,12 +49,20 @@ ENV
 
 ./Scripts/sync-version.sh
 
+TODAY="$(date +%Y-%m-%d)"
+if grep -qE '^## Unreleased[[:space:]]*$' CHANGELOG.md; then
+    sed -i '' -E "1,/^## Unreleased[[:space:]]*$/s|^## Unreleased[[:space:]]*$|## $VERSION — $TODAY|" \
+        CHANGELOG.md
+    echo "==> finalized the CHANGELOG.md Unreleased section as $VERSION — $TODAY"
+fi
+./Scripts/validate-changelog.sh "$VERSION"
+
 echo "==> $PREVIOUS_VERSION -> $VERSION (build $NEXT_BUILD_NUMBER)"
 
 make --no-print-directory lint
 make --no-print-directory test
 
-git add version.env Sources/DenshaCore/Version.swift
+git add version.env Sources/DenshaCore/Version.swift CHANGELOG.md
 git commit -m "chore: release v$VERSION"
 git tag "v$VERSION"
 git push origin main "v$VERSION"
