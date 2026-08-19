@@ -6,7 +6,8 @@ CLI := $(APP)/Contents/Helpers/densha
 DAEMON_LOG := $(HOME)/.local/state/densha/denshad.log
 
 .PHONY: help build test fmt lint lint-scripts version xcode hooks hook-check app app-debug run stop restart-app \
-	status logs icon install install-agent uninstall-agent sign-check signing notarize dsyms smoke verify-release release clean
+	status logs icon install install-agent uninstall-agent sign-check signing notarize dsyms smoke \
+	appcast verify-appcast verify-release release clean
 
 help:
 	@echo "Densha — make targets"
@@ -37,6 +38,8 @@ help:
 		"  notarize         Sign, notarize and staple for distribution" \
 		"  dsyms            Verify and zip the release dSYMs" \
 		"  smoke            Launch-test the packaged app as a user machine would" \
+		"  appcast          Regenerate appcast.xml from the published release" \
+		"  verify-appcast   Check appcast.xml is signed and matches version.env" \
 		"  verify-release   Fail unless the app is notarized and accepted" \
 		"  release          Bump version.env, commit, tag and push: make release VERSION=0.1.2" \
 		"  clean            Remove build artifacts"
@@ -129,6 +132,12 @@ dsyms:
 
 smoke:
 	./Scripts/verify-app-launch.sh $(APP)
+
+appcast:
+	./Scripts/make-appcast.sh
+
+verify-appcast:
+	@./Scripts/verify-appcast.sh
 
 verify-release:
 	@./Scripts/verify-release.sh $(APP)

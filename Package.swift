@@ -15,6 +15,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/dduan/TOMLDecoder.git", .upToNextMinor(from: "0.4.5")),
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.8.2"),
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.9.3"),
     ],
     targets: [
         .target(
@@ -39,7 +40,10 @@ let package = Package(
             ],
             path: "Sources/densha"
         ),
-        .target(name: "DenshaUI", dependencies: ["DenshaCore"]),
+        .target(
+            name: "DenshaUI",
+            dependencies: ["DenshaCore", .product(name: "Sparkle", package: "Sparkle")]
+        ),
         .executableTarget(name: "DenshaApp", dependencies: ["DenshaUI"]),
         .testTarget(name: "DenshaCoreTests", dependencies: ["DenshaCore"]),
         .testTarget(name: "DenshaDaemonTests", dependencies: ["DenshaDaemon", "DenshaCore"]),

@@ -7,6 +7,7 @@ import SwiftUI
 @main
 struct DenshaApp: App {
     @State private var model = AppModel()
+    private let updater = Updater.shared
 
     var body: some Scene {
         MenuBarExtra {

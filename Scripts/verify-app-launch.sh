@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 source ./Scripts/version-env.sh
+source ./Scripts/sparkle-env.sh
 
 APP_BUNDLE="${1:-dist/Densha.app}"
 STAY_ALIVE_SECONDS="${DENSHA_LAUNCH_SMOKE_SECONDS:-5}"
@@ -49,6 +50,17 @@ BUNDLE_BUILD="$(plutil -extract CFBundleVersion raw "$APP_BUNDLE/Contents/Info.p
 [ "$BUNDLE_BUILD" = "$BUILD_NUMBER" ] \
     || fail "bundle build $BUNDLE_BUILD, version.env says $BUILD_NUMBER"
 log "version OK: $BUNDLE_VERSION ($BUNDLE_BUILD)"
+
+if [ ! -d "$APP_BUNDLE/Contents/Frameworks/Sparkle.framework" ]; then
+    fail "missing Contents/Frameworks/Sparkle.framework — the app cannot self-update"
+fi
+BUNDLE_FEED="$(plutil -extract SUFeedURL raw "$APP_BUNDLE/Contents/Info.plist" 2> /dev/null || true)"
+BUNDLE_KEY="$(plutil -extract SUPublicEDKey raw "$APP_BUNDLE/Contents/Info.plist" 2> /dev/null || true)"
+[ "$BUNDLE_FEED" = "$SPARKLE_FEED_URL" ] \
+    || fail "bundle feed is '$BUNDLE_FEED', sparkle.env says '$SPARKLE_FEED_URL'"
+[ "$BUNDLE_KEY" = "$SPARKLE_PUBLIC_KEY" ] \
+    || fail "bundle update key does not match sparkle.env"
+log "sparkle OK: framework embedded, feed and key match sparkle.env"
 
 if ! command -v sandbox-exec > /dev/null 2>&1; then
     warn "sandbox-exec unavailable; running probes without denying the checkout"

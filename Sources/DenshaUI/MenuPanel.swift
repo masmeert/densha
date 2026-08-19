@@ -6,6 +6,7 @@ public struct MenuPanel: View {
 
     @Environment(AppModel.self) private var model
     @Environment(\.openWindow) private var openWindow
+    private let updater = Updater.shared
 
     @AppStorage("scannedPortsExpanded") private var scannedPortsExpanded = false
     @State private var hoveringScannedPortsHeader = false
@@ -39,6 +40,9 @@ public struct MenuPanel: View {
                 Button("Reload config") { model.reload() }
                 Divider()
                 Button("Open Logs…") { showLogs(nil) }
+                Divider()
+                Button("Check for Updates…") { updater.checkForUpdates() }
+                    .disabled(!updater.canCheckForUpdates)
                 Divider()
                 Button("Quit Densha") { NSApp.terminate(nil) }
             } label: {

@@ -60,3 +60,6 @@ git tag "v$VERSION"
 git push origin main "v$VERSION"
 
 echo "pushed v$VERSION — follow it with: gh run watch"
+echo
+echo "once CI has published the release, make the update visible to existing installs:"
+echo "  make appcast && git add appcast.xml && git commit -m 'chore: appcast for v$VERSION' && git push"

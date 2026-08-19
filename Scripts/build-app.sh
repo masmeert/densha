@@ -6,11 +6,14 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 source ./Scripts/version-env.sh
+source ./Scripts/sparkle-env.sh
 ./Scripts/sync-version.sh --check > /dev/null
 
 APP="dist/Densha.app"
 MACOS="$APP/Contents/MacOS"
 HELPERS="$APP/Contents/Helpers"
+FRAMEWORKS="$APP/Contents/Frameworks"
+SPARKLE="$FRAMEWORKS/Sparkle.framework"
 
 ARCHS=()
 if [ "${DENSHA_UNIVERSAL:-0}" = "1" ]; then
@@ -28,12 +31,23 @@ BIN="$(swift build -c "$CONFIG" "${ARCHS[@]+"${ARCHS[@]}"}" --show-bin-path)"
 
 echo "==> assembling $APP"
 rm -rf "$APP"
-mkdir -p "$MACOS" "$HELPERS" "$APP/Contents/Resources"
+mkdir -p "$MACOS" "$HELPERS" "$FRAMEWORKS" "$APP/Contents/Resources"
 
 cp "$BIN/DenshaApp" "$MACOS/Densha"
 cp "$BIN/denshad" "$HELPERS/denshad"
 cp "$BIN/densha" "$HELPERS/densha"
 cp Resources/Densha.icns "$APP/Contents/Resources/Densha.icns"
+
+if [ ! -d "$BIN/Sparkle.framework" ]; then
+    echo "error: no $BIN/Sparkle.framework to embed" >&2
+    exit 1
+fi
+cp -R "$BIN/Sparkle.framework" "$FRAMEWORKS/"
+chmod -R a+rX "$SPARKLE"
+# The app binary links @rpath/Sparkle.framework but SwiftPM only gives it
+# @loader_path, so it cannot find the framework once embedded. This rewrites the
+# load path and must happen before signing, which install_name_tool invalidates.
+install_name_tool -add_rpath "@executable_path/../Frameworks" "$MACOS/Densha"
 
 echo "==> version $MARKETING_VERSION ($BUILD_NUMBER)"
 cat > "$APP/Contents/Info.plist" <<PLIST
@@ -61,6 +75,14 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 	<string>${BUILD_NUMBER}</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>26.0</string>
+	<key>SUFeedURL</key>
+	<string>${SPARKLE_FEED_URL}</string>
+	<key>SUPublicEDKey</key>
+	<string>${SPARKLE_PUBLIC_KEY}</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSHighResolutionCapable</key>
@@ -77,11 +99,18 @@ plutil -lint "$APP/Contents/Info.plist" > /dev/null
 IDENTITY="${DENSHA_SIGN_IDENTITY:--}"
 if [ "$IDENTITY" = "-" ]; then
     echo "==> signing (ad-hoc)"
-    SIGN=(codesign --force --options runtime --sign -)
+    # No --options runtime here: the hardened runtime enforces library
+    # validation, and an ad-hoc signature has no Team ID for the embedded
+    # Sparkle.framework to match, so dyld would refuse to load it.
+    SIGN=(codesign --force --sign -)
 else
     echo "==> signing ($IDENTITY)"
     SIGN=(codesign --force --options runtime --timestamp --sign "$IDENTITY")
 fi
+
+while IFS= read -r target; do
+    "${SIGN[@]}" "$target"
+done < <(./Scripts/sparkle-paths.sh "$SPARKLE")
 
 "${SIGN[@]}" "$HELPERS/denshad"
 "${SIGN[@]}" "$HELPERS/densha"
