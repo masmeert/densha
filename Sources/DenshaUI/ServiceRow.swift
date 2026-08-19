@@ -15,48 +15,6 @@ struct IconButtonStyle: ButtonStyle {
     }
 }
 
-struct StatusDot: View {
-    let state: ServiceState
-    let health: HealthState
-    let animate: Bool
-
-    @State private var pulsing = false
-
-    private var color: Color {
-        switch state {
-        case .running: return health == .failing ? .orange : .green
-        case .unhealthy: return .orange
-        case .starting, .stopping: return .orange
-        case .failed: return .red
-        case .stopped, .exited: return .secondary.opacity(0.55)
-        }
-    }
-
-    private var isTransitional: Bool { state == .starting || state == .stopping }
-
-    var body: some View {
-        Circle()
-            .fill(color)
-            .frame(width: 7, height: 7)
-            .opacity(pulsing ? 0.35 : 1)
-            .animation(.easeOut(duration: 0.2), value: color)
-            .onChange(of: isTransitional, initial: true) { _, transitional in
-                guard animate else {
-                    pulsing = false
-                    return
-                }
-                if transitional {
-                    withAnimation(.easeInOut(duration: 0.65).repeatForever(autoreverses: true)) {
-                        pulsing = true
-                    }
-                } else {
-                    withAnimation(.easeOut(duration: 0.15)) { pulsing = false }
-                }
-            }
-            .accessibilityHidden(true)
-    }
-}
-
 struct ServiceRow: View {
     let service: ServiceStatus
     let busy: Bool
@@ -74,7 +32,8 @@ struct ServiceRow: View {
         HStack(spacing: 10) {
             Button(action: onShowLogs) {
                 HStack(spacing: 10) {
-                    StatusDot(state: service.state, health: service.health, animate: !reduceMotion)
+                    SignalHead(
+                        state: service.state, health: service.health, animate: !reduceMotion)
 
                     Text(service.shortName)
                         .font(.system(size: 13))
@@ -84,10 +43,9 @@ struct ServiceRow: View {
                     Spacer(minLength: 6)
 
                     if let port = service.port {
-                        Text(verbatim: ":\(port)")
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(.tertiary)
-                            .monospacedDigit()
+                        PlatformSign(
+                            port: port, tint: .secondary.opacity(service.isLive ? 0.9 : 0.6),
+                            animate: !reduceMotion)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -96,6 +54,7 @@ struct ServiceRow: View {
             .buttonStyle(.plain)
             .help(helpText)
             .accessibilityLabel("Open logs for \(service.name)")
+            .accessibilityValue(stateDescription)
 
             HStack(spacing: 2) {
                 Button(action: onRestart) {
@@ -132,6 +91,11 @@ struct ServiceRow: View {
         .onHover { hovering = $0 }
     }
 
+    private var stateDescription: String {
+        let aspect = SignalAspect(state: service.state, health: service.health)
+        return "\(service.state.rawValue), signal \(aspect.description)"
+    }
+
     private var helpText: String {
         var parts = [service.command]
         if let code = service.exitCode, service.state == .failed {
@@ -156,17 +120,5 @@ struct ServiceRow: View {
         }
         .frame(width: 316)
         .padding(.vertical, 7)
-    }
-
-    #Preview("Dots") {
-        HStack(spacing: 14) {
-            ForEach(ServiceState.allCases, id: \.self) { state in
-                VStack(spacing: 6) {
-                    StatusDot(state: state, health: .none, animate: true)
-                    Text(state.rawValue).font(.system(size: 9)).foregroundStyle(.secondary)
-                }
-            }
-        }
-        .padding()
     }
 #endif

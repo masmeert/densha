@@ -13,13 +13,8 @@ struct ScannedPortRow: View {
     var body: some View {
         Button(action: onOpen) {
             HStack(spacing: 10) {
-                Circle()
-                    .strokeBorder(
-                        conflicting ? Color.orange.opacity(0.9) : Color.secondary.opacity(0.5),
-                        lineWidth: 1
-                    )
-                    .frame(width: 7, height: 7)
-                    .accessibilityHidden(true)
+                UnsignalledMarker(
+                    tint: conflicting ? Color.orange.opacity(0.9) : Color.secondary.opacity(0.5))
 
                 Text(scanned.processName)
                     .font(.system(size: 13))
@@ -42,12 +37,10 @@ struct ScannedPortRow: View {
                     .foregroundStyle(.tertiary)
                     .opacity(hovering ? 1 : 0)
 
-                Text(verbatim: ":\(scanned.port)")
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(
-                        conflicting ? AnyShapeStyle(.orange) : AnyShapeStyle(.tertiary)
-                    )
-                    .monospacedDigit()
+                PlatformSign(
+                    port: scanned.port,
+                    tint: conflicting ? .orange : .secondary.opacity(0.6),
+                    animate: false)
             }
             .padding(.horizontal, 12)
             .frame(height: 28)

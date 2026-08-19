@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- Service status is now a three-aspect railway signal rather than a coloured dot, so state reads from lamp position as well as colour.
+- Ports are shown as platform signs, and roll to the new number when a port changes.
+
 ## 0.3.1 — 2026-08-19
 
 ### Added
