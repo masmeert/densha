@@ -8,7 +8,7 @@ struct Densha: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "densha",
         abstract: "Run your dev servers without keeping a terminal open.",
-        version: "0.1.0",
+        version: "0.1.1",
         subcommands: [
             Status.self, Start.self, Stop.self, Restart.self, Logs.self, Send.self,
             Reload.self, Init.self, Edit.self, DaemonCommand.self, InstallCLI.self,
