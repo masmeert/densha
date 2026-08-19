@@ -27,12 +27,14 @@ public struct MenuPanel: View {
 
     private var header: some View {
         HStack(spacing: 6) {
-            Text("Densha")
-                .font(.system(size: 13, weight: .semibold))
-            if model.liveCount > 0 {
-                Text("\(model.liveCount) running")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.tertiary)
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("Densha")
+                    .font(.system(size: 13, weight: .semibold))
+                if model.liveCount > 0 {
+                    Text("\(model.liveCount) in service")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                }
             }
             Spacer()
             Menu {
