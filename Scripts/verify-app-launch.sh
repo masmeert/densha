@@ -62,6 +62,16 @@ BUNDLE_KEY="$(plutil -extract SUPublicEDKey raw "$APP_BUNDLE/Contents/Info.plist
     || fail "bundle update key does not match sparkle.env"
 log "sparkle OK: framework embedded, feed and key match sparkle.env"
 
+NOTICES="$APP_BUNDLE/Contents/Resources/ThirdPartyLicenses.txt"
+[ -s "$NOTICES" ] || fail "missing Contents/Resources/ThirdPartyLicenses.txt"
+[ -s "$APP_BUNDLE/Contents/Resources/LICENSE.txt" ] || fail "missing Contents/Resources/LICENSE.txt"
+for identity in $(sed -n 's/.*"identity"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' Package.resolved); do
+    if ! grep -qi "^$identity$" "$NOTICES"; then
+        fail "ThirdPartyLicenses.txt does not credit '$identity'"
+    fi
+done
+log "licenses OK: own license plus notices for every resolved dependency"
+
 if ! command -v sandbox-exec > /dev/null 2>&1; then
     warn "sandbox-exec unavailable; running probes without denying the checkout"
     SANDBOXED=0

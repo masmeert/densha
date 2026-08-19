@@ -37,6 +37,8 @@ cp "$BIN/DenshaApp" "$MACOS/Densha"
 cp "$BIN/denshad" "$HELPERS/denshad"
 cp "$BIN/densha" "$HELPERS/densha"
 cp Resources/Densha.icns "$APP/Contents/Resources/Densha.icns"
+cp LICENSE "$APP/Contents/Resources/LICENSE.txt"
+./Scripts/collect-licenses.sh "$APP/Contents/Resources/ThirdPartyLicenses.txt"
 
 if [ ! -d "$BIN/Sparkle.framework" ]; then
     echo "error: no $BIN/Sparkle.framework to embed" >&2

@@ -80,3 +80,7 @@ make test       # 104 tests, ~2s warm
 make lint       # swift-format, configured in .swift-format
 make run        # rebuild (debug) and relaunch the app
 ```
+
+## License
+
+MIT — see [LICENSE](LICENSE). Densha bundles Sparkle, TOMLDecoder, and swift-argument-parser; their notices ship inside the app and are listed in `Contents/Resources/ThirdPartyLicenses.txt`.

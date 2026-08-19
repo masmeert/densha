@@ -7,7 +7,7 @@ DAEMON_LOG := $(HOME)/.local/state/densha/denshad.log
 
 .PHONY: help build test fmt lint lint-scripts version xcode hooks hook-check app app-debug run stop restart-app \
 	status logs icon install install-agent uninstall-agent sign-check signing notarize dsyms smoke \
-	appcast verify-appcast changelog validate-changelog verify-release release clean
+	appcast verify-appcast changelog validate-changelog licenses verify-release release clean
 
 help:
 	@echo "Densha — make targets"
@@ -41,6 +41,7 @@ help:
 		"  appcast          Regenerate appcast.xml from the published release" \
 		"  verify-appcast   Check appcast.xml is signed and matches version.env" \
 		"  changelog        Print this version's release notes as HTML" \
+		"  licenses         Collect third-party license notices" \
 		"  validate-changelog  Fail unless CHANGELOG.md documents this version" \
 		"  verify-release   Fail unless the app is notarized and accepted" \
 		"  release          Bump version.env, commit, tag and push: make release VERSION=0.1.2" \
@@ -143,6 +144,9 @@ verify-appcast:
 
 changelog:
 	@./Scripts/changelog-to-html.sh
+
+licenses:
+	@./Scripts/collect-licenses.sh
 
 validate-changelog:
 	@./Scripts/validate-changelog.sh

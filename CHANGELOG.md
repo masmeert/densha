@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Densha is now MIT licensed.
+- The app bundles its own license and the notices for every third-party component it ships, satisfying the attribution terms of Sparkle, TOMLDecoder, and swift-argument-parser.
+
 ## 0.3.0 — 2026-08-19
 
 ### Highlights
