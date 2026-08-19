@@ -27,6 +27,7 @@ struct DenshaApp: App {
                 .environment(model)
         }
         .defaultSize(width: 760, height: 460)
+        .windowToolbarStyle(.unified(showsTitle: false))
         .commandsRemoved()
     }
 }

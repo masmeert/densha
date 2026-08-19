@@ -30,24 +30,6 @@ public struct LogWindow: View {
         @Bindable var model = model
 
         VStack(spacing: 0) {
-            LogToolbar(
-                services: model.services,
-                selection: $model.selectedLogService,
-                query: $query,
-                following: $following,
-                showTimestamps: $showTimestamps,
-                copy: {
-                    model.copyToClipboard(
-                        LogTranscriptText.copyText(
-                            session.follower?.lines ?? [], query: query,
-                            showTimestamps: showTimestamps))
-                },
-                download: {
-                    if let name = selectedService { model.saveLogFile(for: name) }
-                },
-                clear: { session.follower?.clear() }
-            )
-            Divider()
             if let name = selectedService, let follower = session.follower {
                 LogTranscript(
                     follower: follower,
@@ -69,6 +51,25 @@ public struct LogWindow: View {
             }
         }
         .frame(minWidth: 560, minHeight: 360)
+        .toolbar {
+            LogToolbar(
+                services: model.services,
+                selection: $model.selectedLogService,
+                following: $following,
+                showTimestamps: $showTimestamps,
+                copy: {
+                    model.copyToClipboard(
+                        LogTranscriptText.copyText(
+                            session.follower?.lines ?? [], query: query,
+                            showTimestamps: showTimestamps))
+                },
+                download: {
+                    if let name = selectedService { model.saveLogFile(for: name) }
+                },
+                clear: { session.follower?.clear() }
+            )
+        }
+        .searchable(text: $query, placement: .toolbar, prompt: "Filter logs")
         .onAppear {
             selectService(selectedService)
         }
@@ -88,61 +89,67 @@ public struct LogWindow: View {
     }
 }
 
-private struct LogToolbar: View {
+private struct LogToolbar: ToolbarContent {
     let services: [ServiceStatus]
     @Binding var selection: String?
-    @Binding var query: String
     @Binding var following: Bool
     @Binding var showTimestamps: Bool
     let copy: () -> Void
     let download: () -> Void
     let clear: () -> Void
 
-    var body: some View {
-        HStack(spacing: 8) {
+    var body: some ToolbarContent {
+        ToolbarItem(placement: .navigation) {
             Picker("", selection: $selection) {
                 ForEach(services) { service in
                     Text(service.name).tag(Optional(service.name))
                 }
             }
             .labelsHidden()
-            .frame(maxWidth: 180)
+            .controlSize(.small)
+            .help("Select service")
+            .accessibilityLabel("Service")
+        }
 
-            Spacer()
+        ToolbarSpacer(.flexible)
 
-            TextField("Filter", text: $query)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 170)
-
+        ToolbarItemGroup(placement: .primaryAction) {
             Toggle(isOn: $following) {
                 Image(systemName: "arrow.down.to.line")
             }
             .toggleStyle(.button)
             .help("Follow new output")
+            .accessibilityLabel("Follow new output")
 
             Toggle(isOn: $showTimestamps) {
                 Image(systemName: "clock")
             }
             .toggleStyle(.button)
             .help("Show timestamps")
+            .accessibilityLabel("Show timestamps")
+        }
 
+        ToolbarSpacer(.fixed, placement: .primaryAction)
+
+        ToolbarItemGroup(placement: .primaryAction) {
             Button(action: copy) {
                 Image(systemName: "doc.on.doc")
             }
             .help("Copy visible log lines (last \(LogTranscriptText.copyLineLimit))")
+            .accessibilityLabel("Copy visible log lines")
 
-            Button(action: download) {
-                Image(systemName: "square.and.arrow.down")
+            Menu {
+                Button("Save Full Log…", systemImage: "square.and.arrow.down", action: download)
+                Divider()
+                Button(role: .destructive, action: clear) {
+                    Label("Clear View", systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
             }
-            .help("Save the full log file…")
-
-            Button(action: clear) {
-                Image(systemName: "trash")
-            }
-            .help("Clear this view (does not touch the log file)")
+            .help("More log actions")
+            .accessibilityLabel("More log actions")
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
     }
 }
 
