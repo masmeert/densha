@@ -5,7 +5,7 @@ APP := dist/Densha.app
 CLI := $(APP)/Contents/Helpers/densha
 DAEMON_LOG := $(HOME)/.local/state/densha/denshad.log
 
-.PHONY: help build test fmt lint hooks hook-check xcode app app-debug run stop restart-app \
+.PHONY: help build test fmt lint lint-scripts version xcode hooks hook-check app app-debug run stop restart-app \
 	status logs icon install install-agent uninstall-agent sign-check signing notarize verify-release release clean
 
 help:
@@ -15,7 +15,9 @@ help:
 		"  build            Build every target (debug)" \
 		"  test             Run the test suite" \
 		"  fmt              Format Swift sources in place" \
-		"  lint             Report formatting problems without changing anything" \
+		"  lint             Report formatting and version problems without changing anything" \
+		"  lint-scripts     Syntax-check every shell script" \
+		"  version          Regenerate Sources/DenshaCore/Version.swift from version.env" \
 		"  hooks            Install the local pre-commit hook" \
 		"  hook-check       Run the pre-commit hook on every Swift file" \
 		"  xcode            Open the package in Xcode" \
@@ -34,7 +36,7 @@ help:
 		"  signing          Report signing and notarizing availability" \
 		"  notarize         Sign, notarize and staple for distribution" \
 		"  verify-release   Fail unless the app is notarized and accepted" \
-		"  release          Bump, commit, tag and push: make release VERSION=0.1.2" \
+		"  release          Bump version.env, commit, tag and push: make release VERSION=0.1.2" \
 		"  clean            Remove build artifacts"
 
 build:
@@ -46,8 +48,20 @@ test:
 fmt:
 	swift format --in-place --recursive Sources Tests
 
-lint:
+lint: lint-scripts
+	./Scripts/sync-version.sh --check
 	swift format lint --recursive --strict Sources Tests
+
+lint-scripts:
+	@count=0; \
+	for script in Scripts/*.sh; do \
+		bash -n "$$script"; \
+		count=$$((count + 1)); \
+	done; \
+	printf 'shell scripts OK: %d files\n' "$$count"
+
+version:
+	./Scripts/sync-version.sh
 
 hooks:
 	mise install
@@ -187,37 +201,10 @@ verify-release:
 	echo "  OK: notarized, stapled, accepted"
 
 release:
-	@set -eu; \
-	if [ -z "$${VERSION:-}" ]; then \
+	@if [ -z "$(VERSION)" ]; then \
 		echo "usage: make release VERSION=0.1.2"; exit 1; \
-	fi; \
-	case "$$VERSION" in \
-		v*) echo "drop the leading v: VERSION=$${VERSION#v}"; exit 1;; \
-	esac; \
-	if ! printf '%s' "$$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$$'; then \
-		echo "VERSION must look like 0.1.2"; exit 1; \
-	fi; \
-	if [ -n "$$(git status --porcelain)" ]; then \
-		echo "working tree is dirty — commit or stash first"; exit 1; \
-	fi; \
-	if [ "$$(git branch --show-current)" != "main" ]; then \
-		echo "releases are cut from main, not $$(git branch --show-current)"; exit 1; \
-	fi; \
-	if git rev-parse -q --verify "refs/tags/v$$VERSION" >/dev/null; then \
-		echo "tag v$$VERSION already exists"; exit 1; \
-	fi; \
-	sed -i '' -E 's/version: "[0-9]+\.[0-9]+\.[0-9]+"/version: "'"$$VERSION"'"/' \
-		Sources/densha/CLI.swift; \
-	grep -q 'version: "'"$$VERSION"'"' Sources/densha/CLI.swift \
-		|| { echo "failed to set the version in Sources/densha/CLI.swift"; exit 1; }; \
-	$(MAKE) --no-print-directory test; \
-	if [ -n "$$(git status --porcelain Sources/densha/CLI.swift)" ]; then \
-		git add Sources/densha/CLI.swift; \
-		git commit -m "chore: release v$$VERSION"; \
-	fi; \
-	git tag "v$$VERSION"; \
-	git push origin main "v$$VERSION"; \
-	echo "pushed v$$VERSION — follow it with: gh run watch"
+	fi
+	./Scripts/release.sh "$(VERSION)"
 
 clean:
 	-swift package clean

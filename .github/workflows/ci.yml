@@ -9,20 +9,53 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   test:
     runs-on: macos-26
+    timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          for candidate in /Applications/Xcode_26.4.app \
+                           /Applications/Xcode_26.3.app \
+                           /Applications/Xcode_26.2.app; do
+            if [ -d "$candidate" ]; then
+              sudo xcode-select -s "$candidate/Contents/Developer"
+              echo "DEVELOPER_DIR=$candidate/Contents/Developer" >> "$GITHUB_ENV"
+              break
+            fi
+          done
+          version="$(xcodebuild -version | head -1)"
+          case "$version" in
+            "Xcode 26."*) ;;
+            *) echo "::error::expected Xcode 26.x, runner offers '$version'"; exit 1 ;;
+          esac
 
       - name: Toolchain
+        id: toolchain
         run: |
+          set -euo pipefail
           swift --version
           xcodebuild -version
+          tag="$(swift --version 2>&1 | shasum -a 256 | cut -c1-12)"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Restore SwiftPM build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .build
+            ~/Library/Caches/org.swift.swiftpm
+          key: swiftpm-macos26-${{ steps.toolchain.outputs.tag }}-${{ hashFiles('Package.resolved', 'Package.swift') }}
+          restore-keys: |
+            swiftpm-macos26-${{ steps.toolchain.outputs.tag }}-
 
       - name: Lint
         run: make lint
@@ -32,3 +65,17 @@ jobs:
 
       - name: Assemble app bundle
         run: make app-debug
+
+      - name: Summarize
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          source ./Scripts/version-env.sh
+          {
+            printf '### CI\n\n'
+            printf '| Field | Value |\n'
+            printf '| --- | --- |\n'
+            printf '| Version | `%s (%s)` |\n' "$MARKETING_VERSION" "$BUILD_NUMBER"
+            printf '| Xcode | `%s` |\n' "$(xcodebuild -version | head -1)"
+            printf '| Runner | `%s` |\n' "${RUNNER_NAME:-unknown}"
+          } >> "$GITHUB_STEP_SUMMARY"

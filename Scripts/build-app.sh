@@ -1,9 +1,12 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 CONFIG="${1:-release}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+
+source ./Scripts/version-env.sh
+./Scripts/sync-version.sh --check > /dev/null
 
 APP="dist/Densha.app"
 MACOS="$APP/Contents/MacOS"
@@ -30,14 +33,46 @@ mkdir -p "$MACOS" "$HELPERS" "$APP/Contents/Resources"
 cp "$BIN/DenshaApp" "$MACOS/Densha"
 cp "$BIN/denshad" "$HELPERS/denshad"
 cp "$BIN/densha" "$HELPERS/densha"
-cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/Densha.icns "$APP/Contents/Resources/Densha.icns"
 
-if [ -n "${DENSHA_VERSION:-}" ]; then
-    plutil -replace CFBundleShortVersionString -string "$DENSHA_VERSION" "$APP/Contents/Info.plist"
-    plutil -replace CFBundleVersion -string "$DENSHA_VERSION" "$APP/Contents/Info.plist"
-    echo "==> version $DENSHA_VERSION"
-fi
+echo "==> version $MARKETING_VERSION ($BUILD_NUMBER)"
+cat > "$APP/Contents/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleExecutable</key>
+	<string>Densha</string>
+	<key>CFBundleIconFile</key>
+	<string>Densha</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.densha.Densha</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Densha</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>${MARKETING_VERSION}</string>
+	<key>CFBundleVersion</key>
+	<string>${BUILD_NUMBER}</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>26.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSSupportsAutomaticTermination</key>
+	<false/>
+	<key>NSSupportsSuddenTermination</key>
+	<false/>
+</dict>
+</plist>
+PLIST
+plutil -lint "$APP/Contents/Info.plist" > /dev/null
 
 IDENTITY="${DENSHA_SIGN_IDENTITY:--}"
 if [ "$IDENTITY" = "-" ]; then
