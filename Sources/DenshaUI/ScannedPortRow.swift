@@ -102,7 +102,7 @@ struct ScannedPortRow: View {
                         armed = true
                     }
                 } label: {
-                    Image(systemName: "xmark")
+                    Image(systemName: "stop.fill")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(armed ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
                 }

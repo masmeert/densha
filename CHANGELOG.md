@@ -5,7 +5,7 @@
 ### Added
 - Services can be added from the menu bar with **+**: pick the folder a service runs in and Densha writes the entry into services.toml, comments and all. The project is taken from the folder — its package.json name, its git remote, or the folder itself — and created on the spot if it does not exist yet, or picked from the projects already configured. A package.json dev script is offered as the command.
 - Right-click a service for "Edit Service…" and "Reveal in Finder". Editing rewrites the entry where it stands; moving a service to another project takes its old project with it when it was the last one there.
-- A port under "Other ports" can be freed from the menu bar: hovering it turns up a ✕ that goes red and waits for a second click, and right-clicking offers the same. Densha sends SIGTERM to the process listening on that port, follows with SIGKILL if it holds on, and refuses the moment the port turns out to belong to a service it supervises.
+- A port under "Other ports" can be freed from the menu bar: hovering it turns up the same stop button the services have, which goes red and waits for a second click, and right-clicking offers the same. Densha sends SIGTERM to the process listening on that port, follows with SIGKILL if it holds on, and refuses the moment the port turns out to belong to a service it supervises.
 - `densha kill <port>` frees a port from the terminal, with or without the leading colon that `densha ports` prints.
 
 ### Changed
