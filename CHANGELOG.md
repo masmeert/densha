@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Highlights
+- **Services can be added without leaving the app**: point Densha at the folder a service runs in and it writes the entry into services.toml, taking the project name from the folder — its package.json name, its git remote, or the folder itself. Editing a service and revealing it in Finder live on its right-click menu.
+- **Take a port back**: a port under "Other ports" can be killed from the menu bar or with `densha kill <port>`, which is the quickest way to hand a port back to the service that wants it.
+
 ### Added
 - Services can be added from the menu bar with **+**: pick the folder a service runs in and Densha writes the entry into services.toml, comments and all. The project is taken from the folder — its package.json name, its git remote, or the folder itself — and created on the spot if it does not exist yet, or picked from the projects already configured. A package.json dev script is offered as the command.
 - Right-click a service for "Edit Service…" and "Reveal in Finder". Editing rewrites the entry where it stands; moving a service to another project takes its old project with it when it was the last one there.
