@@ -3,6 +3,35 @@
     <channel>
         <title>Densha</title>
         <item>
+            <title>0.4.0</title>
+            <pubDate>Thu, 20 Aug 2026 09:36:02 +0200</pubDate>
+            <link>https://github.com/masmeert/densha</link>
+            <sparkle:version>8</sparkle:version>
+            <sparkle:shortVersionString>0.4.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>Densha 0.4.0</h2>
+<h3>Highlights</h3>
+<ul>
+<li><strong>Services can be added without leaving the app</strong>: point Densha at the folder a service runs in and it writes the entry into services.toml, taking the project name from the folder — its package.json name, its git remote, or the folder itself. Editing a service and revealing it in Finder live on its right-click menu.</li>
+<li><strong>Take a port back</strong>: a port under "Other ports" can be killed from the menu bar or with <code>densha kill &lt;port&gt;</code>, which is the quickest way to hand a port back to the service that wants it.</li>
+</ul>
+<h3>Added</h3>
+<ul>
+<li>Services can be added from the menu bar with <strong>+</strong>: pick the folder a service runs in and Densha writes the entry into services.toml, comments and all. The project is taken from the folder — its package.json name, its git remote, or the folder itself — and created on the spot if it does not exist yet, or picked from the projects already configured. A package.json dev script is offered as the command.</li>
+<li>Right-click a service for "Edit Service…" and "Reveal in Finder". Editing rewrites the entry where it stands; moving a service to another project takes its old project with it when it was the last one there.</li>
+<li>A port under "Other ports" can be freed from the menu bar: hovering it turns up the same stop button the services have, which goes red and waits for a second click, and right-clicking offers the same. Densha sends SIGTERM to the process listening on that port, follows with SIGKILL if it holds on, and refuses the moment the port turns out to belong to a service it supervises.</li>
+<li><code>densha kill &lt;port&gt;</code> frees a port from the terminal, with or without the leading colon that <code>densha ports</code> prints.</li>
+</ul>
+<h3>Changed</h3>
+<ul>
+<li>Projects and "Other ports" now share one section header, so their disclosure arrows, titles and counts line up with the service rows underneath, and every gap between sections is the same.</li>
+<li>Unclaimed ports gained the copy button the service rows have, which also lines their port signs up with the ones above.</li>
+<li>Every action in the panel now falls in one of two columns: the header's <strong>+</strong> and <strong>⋯</strong>, a project's play and stop, a service's restart and stop, and a port's copy and stop all line up, and the port signs beside them do too. Opening an unclaimed port lives on the row itself and in its right-click menu, which is what freed the column up.</li>
+</ul>
+]]></description>
+            <enclosure url="https://github.com/masmeert/densha/releases/download/v0.4.0/Densha-0.4.0-universal.zip" length="5274401" type="application/octet-stream" sparkle:edSignature="cSkyAMBJzlY0aj/tvOgQ2UuJ0oHRonkoEfuYHzPUdqUzXpzC27nl7RBkpsX2Nw0DbUL+WZC2I2O+DbfeIPmvBA=="/>
+        </item>
+        <item>
             <title>0.3.2</title>
             <pubDate>Wed, 19 Aug 2026 16:48:43 +0200</pubDate>
             <link>https://github.com/masmeert/densha</link>
@@ -37,45 +66,6 @@
 </ul>
 ]]></description>
             <enclosure url="https://github.com/masmeert/densha/releases/download/v0.3.1/Densha-0.3.1-universal.zip" length="4919332" type="application/octet-stream" sparkle:edSignature="sV9/PA2EvtMTPyYx1V9HZhabY8qAZsKrMizwbITRDemUpqUdTTQfxdrWExJ5E/5LH9hJ48RqK9vG89ZJHWEoBA=="/>
-        </item>
-        <item>
-            <title>0.3.0</title>
-            <pubDate>Wed, 19 Aug 2026 15:59:04 +0200</pubDate>
-            <link>https://github.com/masmeert/densha</link>
-            <sparkle:version>5</sparkle:version>
-            <sparkle:shortVersionString>0.3.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>Densha 0.3.0</h2>
-<h3>Highlights</h3>
-<ul>
-<li><strong>Densha updates itself</strong>: the app ships Sparkle and checks a signed appcast, so a new version arrives without a manual download. "Check for Updates…" also lives in the menu.</li>
-<li><strong>Services group by project</strong>: the menu lists services under the project that defines them, and surfaces ports in use that no service claims.</li>
-</ul>
-<h3>Added</h3>
-<ul>
-<li>Added self-updating through Sparkle, with an EdDSA-signed appcast and a "Check for Updates…" menu item.</li>
-<li>Added project grouping to the menu, with unclaimed listening ports shown separately and collapsed by default.</li>
-<li>Added a "Densha on GitHub" menu item beside "Check for Updates…".</li>
-</ul>
-<h3>Changed</h3>
-<ul>
-<li>Trimmed the readme and renamed the example project.</li>
-</ul>
-<h3>Fixed</h3>
-<ul>
-<li>Fixed release builds defaulting to the host architecture, which could publish an Apple-Silicon-only app that excluded Intel Macs.</li>
-</ul>
-<h3>Internal</h3>
-<ul>
-<li>Version now comes from a single <code>version.env</code>, with <code>Info.plist</code> generated at build time and a monotonic build number.</li>
-<li>Added a launch smoke test that runs the packaged app with the build checkout unreadable, covering resource, helper, and framework resolution.</li>
-<li>Release builds archive dSYMs and verify their UUIDs match the shipped binaries, so crash reports can be symbolicated.</li>
-<li>Zipping strips extended attributes and uses <code>ditto --norsrc</code>, so a downloaded bundle no longer risks broken code sealing from AppleDouble files.</li>
-<li>Notarization accepts an App Store Connect API key, and moved out of the Makefile into <code>Scripts/</code>.</li>
-<li>CI pins Xcode, caches SwiftPM builds, pins actions by digest, and bounds every job with a timeout.</li>
-</ul>
-]]></description>
-            <enclosure url="https://github.com/masmeert/densha/releases/download/v0.3.0/Densha-0.3.0-universal.zip" length="4912125" type="application/octet-stream" sparkle:edSignature="+Ezfw8KIMv59PBB5mDzgDjuFBeYm2g9yG+I8EQKHSpsqseX9g873gZm2IRj817AvqMxZ3NCL7dRjOZJNnvayDQ=="/>
         </item>
     </channel>
 </rss>
