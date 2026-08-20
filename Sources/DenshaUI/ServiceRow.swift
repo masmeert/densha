@@ -21,6 +21,8 @@ struct ServiceRow: View {
     let onToggle: () -> Void
     let onRestart: () -> Void
     let onShowLogs: () -> Void
+    let onEdit: () -> Void
+    let onReveal: () -> Void
 
     @State private var hovering = false
     @FocusState private var focused: Bool
@@ -89,6 +91,10 @@ struct ServiceRow: View {
         )
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
+        .contextMenu {
+            Button("Edit Service…", action: onEdit)
+            Button("Reveal in Finder", action: onReveal)
+        }
     }
 
     private var stateDescription: String {
@@ -115,7 +121,7 @@ struct ServiceRow: View {
             ForEach(Sample.all) { service in
                 ServiceRow(
                     service: service, busy: false,
-                    onToggle: {}, onRestart: {}, onShowLogs: {})
+                    onToggle: {}, onRestart: {}, onShowLogs: {}, onEdit: {}, onReveal: {})
             }
         }
         .frame(width: 316)

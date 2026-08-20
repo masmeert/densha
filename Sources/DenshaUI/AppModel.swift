@@ -14,18 +14,24 @@ public final class AppModel {
     var lastError: String?
     var selectedLogService: String?
     var busy: Set<String> = []
+    var serviceEditor: ServiceEditorRequest?
 
     private let daemon: any DaemonServing
     private let applicationActions: any ApplicationActions
+    private let configFile: URL
     private var consumeTask: Task<Void, Never>?
 
     public convenience init() {
         self.init(daemon: LiveDaemonService(), applicationActions: MacApplicationActions())
     }
 
-    init(daemon: any DaemonServing, applicationActions: any ApplicationActions) {
+    init(
+        daemon: any DaemonServing, applicationActions: any ApplicationActions,
+        configFile: URL = Paths.configFile
+    ) {
         self.daemon = daemon
         self.applicationActions = applicationActions
+        self.configFile = configFile
     }
 
     public func connect() {
@@ -178,6 +184,84 @@ public final class AppModel {
         } catch {
             lastError = "\(error)"
         }
+    }
+
+    struct ServiceEditorRequest: Identifiable, Equatable {
+        let id = UUID()
+        var editing: String?
+        var project: String?
+        var folder: String?
+        var service: ServiceDraft?
+    }
+
+    var projectNames: [String] { groups.compactMap(\.project) }
+
+    func requestNewService(project: String? = nil) {
+        let folder = project.flatMap { name in
+            (try? ConfigDocument.load(from: configFile))?.cwd(ofProject: name)
+        }
+        serviceEditor = ServiceEditorRequest(project: project, folder: folder)
+    }
+
+    func requestEdit(_ service: ServiceStatus) {
+        let configured = try? ConfigLoader.load(from: configFile).service(named: service.name)
+        serviceEditor = ServiceEditorRequest(
+            editing: service.name,
+            project: service.project,
+            folder: ConfigLoader.abbreviateTilde(configured?.cwd ?? service.cwd),
+            service: ServiceDraft(
+                name: service.shortName,
+                command: configured?.command ?? service.command,
+                port: configured?.port ?? service.port,
+                autostart: configured?.autostart ?? false,
+                health: configured?.health.map {
+                    HealthDraft(kind: $0.kind, port: $0.port, path: $0.path)
+                }
+            )
+        )
+    }
+
+    func inspectFolder(startingAt folder: String?) -> ProjectFolder? {
+        guard let url = applicationActions.chooseFolder(startingAt: folder) else { return nil }
+        return ProjectFolder.inspect(url)
+    }
+
+    func save(
+        _ service: ServiceDraft, project: String?, folder: String, replacing: String? = nil
+    ) throws {
+        var document = try ConfigDocument.load(from: configFile)
+        let named = project?.trimmingCharacters(in: .whitespaces)
+        let project = (named?.isEmpty ?? true) ? nil : named
+        var draft = service
+
+        if let replacing, ServiceName.project(of: replacing) == project {
+            draft.cwd = cwd(for: project, folder: folder, in: document)
+            try document.replace(draft, named: replacing)
+        } else {
+            if let replacing { try document.remove(serviceNamed: replacing) }
+            if let project, !document.hasProject(named: project) {
+                draft.cwd = nil
+                try document.add(ProjectDraft(name: project, cwd: folder, services: [draft]))
+            } else {
+                draft.cwd = cwd(for: project, folder: folder, in: document)
+                try document.add(draft, toProject: project)
+            }
+        }
+
+        try document.save(to: configFile)
+        serviceEditor = nil
+        reload()
+    }
+
+    private func cwd(for project: String?, folder: String, in document: ConfigDocument) -> String? {
+        guard let project else { return folder }
+        return isSameDirectory(document.cwd(ofProject: project), folder) ? nil : folder
+    }
+
+    private func isSameDirectory(_ one: String?, _ other: String?) -> Bool {
+        guard let one, let other else { return false }
+        return URL(fileURLWithPath: ConfigLoader.expandTilde(one)).standardizedFileURL.path
+            == URL(fileURLWithPath: ConfigLoader.expandTilde(other)).standardizedFileURL.path
     }
 
     func openConfigInEditor() {

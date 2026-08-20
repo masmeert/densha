@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 protocol ApplicationActions: AnyObject {
     func revealInFinder(path: String)
     func openConfig() throws
+    func chooseFolder(startingAt path: String?) -> URL?
     func open(_ url: URL)
     func copyToClipboard(_ text: String)
     func saveLogFile(for service: String) throws
@@ -25,6 +26,21 @@ final class MacApplicationActions: ApplicationActions {
             try Template.starter.write(to: url, atomically: true, encoding: .utf8)
         }
         NSWorkspace.shared.open(url)
+    }
+
+    func chooseFolder(startingAt path: String?) -> URL? {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Choose"
+        panel.message = "Pick the folder the service runs in."
+        if let path {
+            panel.directoryURL = URL(fileURLWithPath: ConfigLoader.expandTilde(path))
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK else { return nil }
+        return panel.url
     }
 
     func open(_ url: URL) {

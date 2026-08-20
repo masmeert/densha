@@ -429,6 +429,19 @@ public enum ConfigLoader {
         )
     }
 
+    public static func isValidName(_ name: String) -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        return !trimmed.isEmpty
+            && trimmed.unicodeScalars.allSatisfy { allowedNameCharacters.contains($0) }
+    }
+
+    public static func abbreviateTilde(_ path: String) -> String {
+        let home = NSHomeDirectory()
+        if path == home { return "~" }
+        if path.hasPrefix(home + "/") { return "~" + path.dropFirst(home.count) }
+        return path
+    }
+
     public static func expandTilde(_ path: String) -> String {
         if path == "~" { return NSHomeDirectory() }
         if path.hasPrefix("~/") {

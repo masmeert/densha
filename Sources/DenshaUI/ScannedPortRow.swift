@@ -11,51 +11,70 @@ struct ScannedPortRow: View {
     private var conflicting: Bool { scanned.conflictsWith != nil }
 
     var body: some View {
-        Button(action: onOpen) {
-            HStack(spacing: 10) {
-                UnsignalledMarker(
-                    tint: conflicting ? Color.orange.opacity(0.9) : Color.secondary.opacity(0.5))
+        HStack(spacing: 10) {
+            Button(action: onOpen) {
+                HStack(spacing: 10) {
+                    UnsignalledMarker(
+                        tint: conflicting ? Color.orange.opacity(0.9) : Color.secondary.opacity(0.5)
+                    )
 
-                Text(scanned.processName)
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-
-                Spacer(minLength: 6)
-
-                if let conflictsWith = scanned.conflictsWith {
-                    Text(conflictsWith)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.orange)
+                    Text(scanned.processName)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
+
+                    Spacer(minLength: 6)
+
+                    if let conflictsWith = scanned.conflictsWith {
+                        Text(conflictsWith)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.orange)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+
+                    PlatformSign(
+                        port: scanned.port,
+                        tint: conflicting ? .orange : .secondary.opacity(0.6),
+                        animate: false)
                 }
-
-                Image(systemName: "arrow.up.forward")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(.tertiary)
-                    .opacity(hovering ? 1 : 0)
-
-                PlatformSign(
-                    port: scanned.port,
-                    tint: conflicting ? .orange : .secondary.opacity(0.6),
-                    animate: false)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 12)
-            .frame(height: 28)
-            .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(Color.primary.opacity(hovering ? 0.06 : 0))
-                    .padding(.horizontal, 4)
-            )
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .help(helpText)
+            .accessibilityLabel(accessibilityText)
+
+            HStack(spacing: 2) {
+                Button(action: onCopyURL) {
+                    Image(systemName: "document.on.document")
+                        .font(.system(size: 10, weight: .semibold))
+                }
+                .buttonStyle(IconButtonStyle())
+                .help("Copy http://localhost:\(scanned.port)")
+                .accessibilityLabel("Copy the address of port \(scanned.port)")
+
+                Button(action: onOpen) {
+                    Image(systemName: "arrow.up.forward")
+                        .font(.system(size: 10, weight: .semibold))
+                }
+                .buttonStyle(IconButtonStyle())
+                .help("Open http://localhost:\(scanned.port)")
+                .accessibilityLabel("Open port \(scanned.port) in the browser")
+            }
+            .opacity(hovering ? 1 : 0)
+            .animation(.easeOut(duration: 0.14), value: hovering)
         }
-        .buttonStyle(.plain)
-        .help(helpText)
-        .accessibilityLabel(accessibilityText)
+        .padding(.horizontal, 12)
+        .frame(height: 28)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Color.primary.opacity(hovering ? 0.06 : 0))
+                .padding(.horizontal, 4)
+        )
+        .contentShape(Rectangle())
         .onHover { hovering = $0 }
-        .animation(.easeOut(duration: 0.14), value: hovering)
         .contextMenu {
             Button("Open in Browser") { onOpen() }
             Button("Copy Address") { onCopyURL() }

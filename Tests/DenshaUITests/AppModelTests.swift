@@ -130,6 +130,139 @@ struct AppModelTests {
         #expect(model.lastError == "no log file for web")
     }
 
+    @Test("a service in an unknown project creates the project from its folder")
+    func newServiceCreatesItsProject() async throws {
+        let configFile = temporaryConfigFile()
+        let daemon = FakeDaemonService()
+        let model = AppModel(
+            daemon: daemon, applicationActions: FakeApplicationActions(), configFile: configFile)
+
+        try model.save(
+            ServiceDraft(name: "web", command: "pnpm dev", port: 3000),
+            project: "storefront", folder: "~/code/storefront")
+        await settle()
+
+        let written = try String(contentsOf: configFile, encoding: .utf8)
+        #expect(written.contains("[[project]]"))
+        #expect(written.contains("name = \"storefront\""))
+        #expect(written.contains("cwd = \"~/code/storefront\""))
+        #expect(daemon.commands == [.reload])
+        #expect(model.serviceEditor == nil)
+    }
+
+    @Test("a service joins an existing project and only repeats a folder that differs")
+    func newServiceJoinsAnExistingProject() throws {
+        let configFile = temporaryConfigFile()
+        let model = AppModel(
+            daemon: FakeDaemonService(), applicationActions: FakeApplicationActions(),
+            configFile: configFile)
+
+        try model.save(
+            ServiceDraft(name: "web", command: "pnpm dev"),
+            project: "storefront", folder: "~/code/storefront")
+        try model.save(
+            ServiceDraft(name: "worker", command: "pnpm worker"),
+            project: "storefront", folder: "~/code/storefront")
+        try model.save(
+            ServiceDraft(name: "api", command: "go run ."),
+            project: "storefront", folder: "~/code/storefront-api")
+
+        let config = try ConfigLoader.load(from: configFile)
+        #expect(
+            config.services.map(\.name) == [
+                "storefront/web", "storefront/worker", "storefront/api",
+            ])
+        #expect(
+            config.service(named: "storefront/worker")?.cwd
+                == ConfigLoader.expandTilde("~/code/storefront"))
+        #expect(
+            config.service(named: "storefront/api")?.cwd
+                == ConfigLoader.expandTilde("~/code/storefront-api"))
+    }
+
+    @Test("adding to a project starts from the folder that project already uses")
+    func newServiceRequestPrefillsTheProjectFolder() throws {
+        let configFile = temporaryConfigFile()
+        let model = AppModel(
+            daemon: FakeDaemonService(), applicationActions: FakeApplicationActions(),
+            configFile: configFile)
+        try model.save(
+            ServiceDraft(name: "web", command: "pnpm dev"),
+            project: "storefront", folder: "~/code/storefront")
+
+        model.requestNewService(project: "storefront")
+
+        #expect(model.serviceEditor?.project == "storefront")
+        #expect(model.serviceEditor?.folder == "~/code/storefront")
+    }
+
+    @Test("editing a service rewrites its entry in place")
+    func editingRewritesTheEntry() throws {
+        let configFile = temporaryConfigFile()
+        let model = AppModel(
+            daemon: FakeDaemonService(), applicationActions: FakeApplicationActions(),
+            configFile: configFile)
+        try model.save(
+            ServiceDraft(name: "web", command: "pnpm dev", port: 3000),
+            project: "storefront", folder: "~/code/storefront")
+        try model.save(
+            ServiceDraft(name: "api", command: "go run ."),
+            project: "storefront", folder: "~/code/storefront")
+
+        try model.save(
+            ServiceDraft(name: "web", command: "pnpm dev --host", port: 4000, autostart: true),
+            project: "storefront", folder: "~/code/storefront", replacing: "storefront/web")
+
+        let config = try ConfigLoader.load(from: configFile)
+        #expect(config.services.map(\.name) == ["storefront/web", "storefront/api"])
+        let web = try #require(config.service(named: "storefront/web"))
+        #expect(web.command == "pnpm dev --host")
+        #expect(web.port == 4000)
+        #expect(web.autostart)
+    }
+
+    @Test("moving a service to another project empties out the one it leaves")
+    func movingSheddsAnEmptyProject() throws {
+        let configFile = temporaryConfigFile()
+        let model = AppModel(
+            daemon: FakeDaemonService(), applicationActions: FakeApplicationActions(),
+            configFile: configFile)
+        try model.save(
+            ServiceDraft(name: "web", command: "pnpm dev"),
+            project: "storefront", folder: "~/code/storefront")
+        try model.save(
+            ServiceDraft(name: "api", command: "go run ."),
+            project: "warehouse", folder: "~/code/warehouse")
+
+        try model.save(
+            ServiceDraft(name: "api", command: "go run ."),
+            project: "storefront", folder: "~/code/storefront-api",
+            replacing: "warehouse/api")
+
+        let config = try ConfigLoader.load(from: configFile)
+        #expect(config.services.map(\.name) == ["storefront/web", "storefront/api"])
+        #expect(!(try ConfigDocument.load(from: configFile)).hasProject(named: "warehouse"))
+    }
+
+    @Test("a chosen folder is inspected for a project name")
+    func chosenFolderIsInspected() throws {
+        let directory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("densha-tests-\(UUID().uuidString)")
+            .appendingPathComponent("storefront")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let actions = FakeApplicationActions()
+        actions.folderToChoose = directory
+        let model = AppModel(daemon: FakeDaemonService(), applicationActions: actions)
+
+        #expect(model.inspectFolder(startingAt: nil)?.projectName == "storefront")
+    }
+
+    private func temporaryConfigFile() -> URL {
+        URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("densha-tests-\(UUID().uuidString)")
+            .appendingPathComponent("services.toml")
+    }
+
     private func settle() async {
         for _ in 0..<4 {
             await Task.yield()
@@ -174,6 +307,12 @@ private final class FakeApplicationActions: ApplicationActions {
 
     func openConfig() throws {
         openedConfigCount += 1
+    }
+
+    var folderToChoose: URL?
+
+    func chooseFolder(startingAt path: String?) -> URL? {
+        folderToChoose
     }
 
     func open(_ url: URL) {

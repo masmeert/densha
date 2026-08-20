@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Services can be added from the menu bar with **+**: pick the folder a service runs in and Densha writes the entry into services.toml, comments and all. The project is taken from the folder — its package.json name, its git remote, or the folder itself — and created on the spot if it does not exist yet, or picked from the projects already configured. A package.json dev script is offered as the command.
+- Right-click a service for "Edit Service…" and "Reveal in Finder". Editing rewrites the entry where it stands; moving a service to another project takes its old project with it when it was the last one there.
+
+### Changed
+- Projects and "Other ports" now share one section header, so their disclosure arrows, titles and counts line up with the service rows underneath, and every gap between sections is the same.
+- Unclaimed ports gained the copy and open buttons the service rows have, which also lines their port signs up with the ones above.
+
 ## 0.3.2 — 2026-08-19
 
 ### Added

@@ -67,7 +67,8 @@
             link: LinkState = .connected,
             warnings: [String] = [],
             lastError: String? = nil,
-            scannedPorts: [ScannedPort] = []
+            scannedPorts: [ScannedPort] = [],
+            serviceEditor: ServiceEditorRequest? = nil
         ) -> AppModel {
             let model = AppModel(
                 daemon: PreviewDaemonService(), applicationActions: PreviewApplicationActions())
@@ -76,6 +77,7 @@
             model.link = link
             model.warnings = warnings
             model.lastError = lastError
+            model.serviceEditor = serviceEditor
             return model
         }
     }
@@ -95,6 +97,7 @@
     private final class PreviewApplicationActions: ApplicationActions {
         func revealInFinder(path: String) {}
         func openConfig() throws {}
+        func chooseFolder(startingAt path: String?) -> URL? { nil }
         func open(_ url: URL) {}
         func copyToClipboard(_ text: String) {}
         func saveLogFile(for service: String) throws {}

@@ -29,5 +29,12 @@ struct DenshaApp: App {
         }
         .defaultSize(width: 760, height: 460)
         .commandsRemoved()
+
+        Window("New Service", id: ServiceEditorWindowID.value) {
+            ServiceEditorWindow()
+                .environment(model)
+        }
+        .windowResizability(.contentSize)
+        .commandsRemoved()
     }
 }

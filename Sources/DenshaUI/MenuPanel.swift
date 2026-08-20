@@ -10,7 +10,6 @@ public struct MenuPanel: View {
 
     @AppStorage("scannedPortsExpanded") private var scannedPortsExpanded = false
     @AppStorage("collapsedGroups") private var collapsedGroupsData = Data()
-    @State private var hoveringScannedPortsHeader = false
 
     private static let visiblePortRows = 6
 
@@ -18,8 +17,11 @@ public struct MenuPanel: View {
         VStack(alignment: .leading, spacing: 0) {
             header
             Divider()
-            content
-                .padding(.vertical, 7)
+            VStack(alignment: .leading, spacing: 0) {
+                content
+            }
+            .padding(.top, 8)
+            .padding(.bottom, 4)
             Divider()
             footer
         }
@@ -38,6 +40,15 @@ public struct MenuPanel: View {
                 }
             }
             Spacer()
+            Button {
+                showNewService()
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            .buttonStyle(IconButtonStyle())
+            .help("Add a service")
+            .accessibilityLabel("Add a service")
             Menu {
                 Button("Edit services.toml…") { model.openConfigInEditor() }
                 Button("Reload config") { model.reload() }
@@ -114,7 +125,8 @@ public struct MenuPanel: View {
                 canStop: group.anyLive,
                 onToggle: { toggleCollapsed(group) },
                 onStart: { model.start(group) },
-                onStop: { model.stop(group) }
+                onStop: { model.stop(group) },
+                onAddService: { showNewService(project: group.project) }
             )
             if expanded {
                 ForEach(group.services) { service in
@@ -123,12 +135,15 @@ public struct MenuPanel: View {
                         busy: model.busy.contains(service.name),
                         onToggle: { model.toggle(service) },
                         onRestart: { model.restart(service.name) },
-                        onShowLogs: { showLogs(service.name) }
+                        onShowLogs: { showLogs(service.name) },
+                        onEdit: { showEditService(service) },
+                        onReveal: { model.revealInFinder(service) }
                     )
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        .padding(.bottom, 8)
         .clipped()
     }
 
@@ -145,34 +160,16 @@ public struct MenuPanel: View {
 
     private var scannedPortSection: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Button {
-                withAnimation(.easeOut(duration: 0.18)) { scannedPortsExpanded.toggle() }
-            } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(.tertiary)
-                        .rotationEffect(.degrees(scannedPortsExpanded ? 90 : 0))
-                    Text("Other ports")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.tertiary)
-                    Text("\(model.scannedPorts.count)")
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(.quaternary)
-                        .monospacedDigit()
-                    Spacer(minLength: 0)
+            SectionHeader(
+                title: "Other ports",
+                count: model.scannedPorts.count,
+                expanded: scannedPortsExpanded,
+                help: "Listening ports that no service in services.toml claims",
+                accessibilityValue: scannedPortsExpanded ? "Expanded" : "Collapsed",
+                onToggle: {
+                    withAnimation(.easeOut(duration: 0.18)) { scannedPortsExpanded.toggle() }
                 }
-                .opacity(hoveringScannedPortsHeader ? 1 : 0.85)
-                .padding(.horizontal, 12)
-                .padding(.top, 8)
-                .padding(.bottom, 2)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .onHover { hoveringScannedPortsHeader = $0 }
-            .help("Listening ports that no service in services.toml claims")
-            .accessibilityLabel("Other ports")
-            .accessibilityValue(scannedPortsExpanded ? "Expanded" : "Collapsed")
+            ) {}
 
             if scannedPortsExpanded {
                 ScrollView(.vertical) {
@@ -195,6 +192,7 @@ public struct MenuPanel: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        .padding(.bottom, 8)
         .clipped()
     }
 
@@ -202,13 +200,16 @@ public struct MenuPanel: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("No services yet")
                 .font(.system(size: 12, weight: .medium))
-            Text("Add a [[service]] block to services.toml to see it here.")
+            Text("Point Densha at a folder and it picks up the project name from there.")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Button("Edit services.toml…") { model.openConfigInEditor() }
-                .controlSize(.small)
-                .padding(.top, 2)
+            HStack(spacing: 8) {
+                Button("Add a service…") { showNewService() }
+                Button("Edit services.toml…") { model.openConfigInEditor() }
+            }
+            .controlSize(.small)
+            .padding(.top, 2)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 4)
@@ -241,6 +242,22 @@ public struct MenuPanel: View {
         .padding(.bottom, 10)
     }
 
+    private func showNewService(project: String? = nil) {
+        model.requestNewService(project: project)
+        showServiceEditor()
+    }
+
+    private func showEditService(_ service: ServiceStatus) {
+        model.requestEdit(service)
+        showServiceEditor()
+    }
+
+    private func showServiceEditor() {
+        openWindow(id: ServiceEditorWindowID.value)
+        NSApp.activate(ignoringOtherApps: true)
+        MenuBarPanel.dismiss()
+    }
+
     private func showLogs(_ service: String?) {
         if let service {
             model.selectedLogService = service
@@ -255,6 +272,69 @@ public struct MenuPanel: View {
     }
 }
 
+private struct SectionHeader<Actions: View>: View {
+    let title: String
+    let count: Int
+    let expanded: Bool
+    var aspect: SignalAspect?
+    let help: String
+    let accessibilityValue: String
+    let onToggle: () -> Void
+    @ViewBuilder let actions: () -> Actions
+
+    @State private var hovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Button(action: onToggle) {
+                HStack(spacing: 10) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(expanded ? 90 : 0))
+                        .frame(width: SignalMetrics.width)
+
+                    HStack(spacing: 5) {
+                        Text(title)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+
+                        Text("\(count)")
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(.quaternary)
+                            .monospacedDigit()
+
+                        if !expanded, let aspect {
+                            SignalHead(
+                                aspect: aspect, orientation: .horizontal, animate: !reduceMotion)
+                        }
+                    }
+
+                    Spacer(minLength: 6)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(help)
+            .accessibilityLabel(title)
+            .accessibilityValue(accessibilityValue)
+
+            HStack(spacing: 2) {
+                actions()
+            }
+        }
+        .frame(minHeight: 21)
+        .opacity(hovering ? 1 : 0.85)
+        .padding(.horizontal, 12)
+        .padding(.top, 6)
+        .padding(.bottom, 2)
+        .onHover { hovering = $0 }
+    }
+}
+
 private struct GroupHeader: View {
     let project: String?
     let count: Int
@@ -265,50 +345,23 @@ private struct GroupHeader: View {
     let onToggle: () -> Void
     let onStart: () -> Void
     let onStop: () -> Void
-
-    @State private var hovering = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let onAddService: () -> Void
 
     private var title: String { project ?? "Services" }
     private var subject: String { project ?? "every ungrouped service" }
 
     var body: some View {
-        HStack(spacing: 2) {
-            Button(action: onToggle) {
-                HStack(spacing: 5) {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(.tertiary)
-                        .rotationEffect(.degrees(expanded ? 90 : 0))
-
-                    Text(title)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-
-                    Text("\(count)")
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(.quaternary)
-                        .monospacedDigit()
-
-                    if !expanded {
-                        SignalHead(
-                            aspect: aspect, orientation: .horizontal, animate: !reduceMotion)
-                    }
-
-                    Spacer(minLength: 6)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help(expanded ? "Hide \(subject)" : "Show \(subject)")
-            .accessibilityLabel(title)
-            .accessibilityValue(
-                expanded
-                    ? "Expanded, \(count) services"
-                    : "Collapsed, \(count) services, signal \(aspect.description)")
-
+        SectionHeader(
+            title: title,
+            count: count,
+            expanded: expanded,
+            aspect: aspect,
+            help: expanded ? "Hide \(subject)" : "Show \(subject)",
+            accessibilityValue: expanded
+                ? "Expanded, \(count) services"
+                : "Collapsed, \(count) services, signal \(aspect.description)",
+            onToggle: onToggle
+        ) {
             Button(action: onStart) {
                 Image(systemName: "play.fill")
                     .font(.system(size: 9, weight: .semibold))
@@ -329,12 +382,9 @@ private struct GroupHeader: View {
             .help("Stop \(subject)")
             .accessibilityLabel("Stop \(subject)")
         }
-        .opacity(hovering ? 1 : 0.85)
-        .padding(.leading, 12)
-        .padding(.trailing, 8)
-        .padding(.top, 6)
-        .padding(.bottom, 1)
-        .onHover { hovering = $0 }
+        .contextMenu {
+            Button(project.map { "New Service in \($0)…" } ?? "New Service…", action: onAddService)
+        }
     }
 }
 

@@ -20,7 +20,11 @@ densha init
 
 ## Configuration
 
-Create or edit `~/.config/densha/services.toml`:
+Add a service from the menu bar with **+**: choose the folder it runs in and Densha
+names the project after it — the `name` in its `package.json`, its git remote, or the
+folder itself — creating that project if it is new, or drop it into one you already
+have. Right-click a service to edit it. Everything lands in
+`~/.config/densha/services.toml`, which you are free to edit by hand:
 
 ```toml
 [[project]]
