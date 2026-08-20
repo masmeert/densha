@@ -81,14 +81,6 @@ struct ScannedPortRow: View {
             .help("Copy http://localhost:\(scanned.port)")
             .accessibilityLabel("Copy the address of port \(scanned.port)")
 
-            Button(action: onOpen) {
-                Image(systemName: "arrow.up.forward")
-                    .font(.system(size: 10, weight: .semibold))
-            }
-            .buttonStyle(IconButtonStyle())
-            .help("Open http://localhost:\(scanned.port)")
-            .accessibilityLabel("Open port \(scanned.port) in the browser")
-
             if killing {
                 ProgressView()
                     .controlSize(.small)

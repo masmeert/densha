@@ -10,7 +10,8 @@
 
 ### Changed
 - Projects and "Other ports" now share one section header, so their disclosure arrows, titles and counts line up with the service rows underneath, and every gap between sections is the same.
-- Unclaimed ports gained the copy and open buttons the service rows have, which also lines their port signs up with the ones above.
+- Unclaimed ports gained the copy button the service rows have, which also lines their port signs up with the ones above.
+- Every action in the panel now falls in one of two columns: the header's **+** and **⋯**, a project's play and stop, a service's restart and stop, and a port's copy and stop all line up, and the port signs beside them do too. Opening an unclaimed port lives on the row itself and in its right-click menu, which is what freed the column up.
 
 ## 0.3.2 — 2026-08-19
 

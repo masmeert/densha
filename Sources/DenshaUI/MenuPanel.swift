@@ -40,36 +40,39 @@ public struct MenuPanel: View {
                 }
             }
             Spacer()
-            Button {
-                showNewService()
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 11, weight: .semibold))
+            HStack(spacing: 2) {
+                Button {
+                    showNewService()
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .buttonStyle(IconButtonStyle())
+                .help("Add a service")
+                .accessibilityLabel("Add a service")
+                Menu {
+                    Button("Edit services.toml…") { model.openConfigInEditor() }
+                    Button("Reload config") { model.reload() }
+                    Divider()
+                    Button("Open Logs…") { showLogs(nil) }
+                    Divider()
+                    Button("Check for Updates…") { updater.checkForUpdates() }
+                        .disabled(!updater.canCheckForUpdates)
+                    Button("Densha on GitHub") { model.openProjectPage() }
+                    Divider()
+                    Button("Quit Densha") { NSApp.terminate(nil) }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .frame(width: 21, height: 21)
+                .help("More")
             }
-            .buttonStyle(IconButtonStyle())
-            .help("Add a service")
-            .accessibilityLabel("Add a service")
-            Menu {
-                Button("Edit services.toml…") { model.openConfigInEditor() }
-                Button("Reload config") { model.reload() }
-                Divider()
-                Button("Open Logs…") { showLogs(nil) }
-                Divider()
-                Button("Check for Updates…") { updater.checkForUpdates() }
-                    .disabled(!updater.canCheckForUpdates)
-                Button("Densha on GitHub") { model.openProjectPage() }
-                Divider()
-                Button("Quit Densha") { NSApp.terminate(nil) }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 11, weight: .semibold))
-            }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .frame(width: 24, height: 24)
-            .help("More")
         }
-        .padding(.horizontal, 14)
+        .padding(.leading, 14)
+        .padding(.trailing, 12)
         .frame(height: 38)
     }
 
