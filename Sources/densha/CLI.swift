@@ -10,8 +10,8 @@ struct Densha: AsyncParsableCommand {
         abstract: "Run your dev servers without keeping a terminal open.",
         version: DenshaVersion.marketing,
         subcommands: [
-            Status.self, Ports.self, Start.self, Stop.self, Restart.self, Logs.self, Send.self,
-            Reload.self, Init.self, Edit.self, DaemonControl.self, InstallCLI.self,
+            Status.self, Ports.self, Kill.self, Start.self, Stop.self, Restart.self, Logs.self,
+            Send.self, Reload.self, Init.self, Edit.self, DaemonControl.self, InstallCLI.self,
         ],
         defaultSubcommand: Status.self
     )
@@ -232,6 +232,44 @@ struct Ports: AsyncParsableCommand {
                     row += Style.yellow("holds \(conflictsWith)'s port")
                 }
                 print(row)
+            }
+        }
+    }
+}
+
+struct Kill: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        abstract: "Kill the process holding an unclaimed port.",
+        discussion: """
+            Frees one of the ports `densha ports` lists: densha sends SIGTERM to the \
+            process listening on it and follows with SIGKILL if the port is still held \
+            when the stop timeout runs out.
+
+            A port that one of densha's own running services holds is left alone — stop \
+            the service instead. A port several processes share is only freed once every \
+            one of them is gone, so the port may come back held by a sibling.
+            """
+    )
+
+    @Argument(help: "The port to free, with or without a leading colon.")
+    var port: String
+
+    func run() async throws {
+        let wanted = port.hasPrefix(":") ? String(port.dropFirst()) : port
+        guard let number = Int(wanted), PortScanRules.scannablePorts.contains(number) else {
+            throw ValidationError(
+                "\(port) is not a port densha scans (\(PortScanRules.scannablePorts.lowerBound) to "
+                    + "\(PortScanRules.scannablePorts.upperBound - 1))")
+        }
+        try withClient { client in
+            let response = try client.send(.kill(port: number))
+            try reportFailure(response)
+            if let holder = (response.ports ?? []).first(where: { $0.port == number }) {
+                print(
+                    Style.yellow(
+                        ":\(number) is still held by \(holder.processName) (pid \(holder.pid))"))
+            } else {
+                print(Style.dim(":\(number) is free"))
             }
         }
     }

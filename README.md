@@ -73,6 +73,7 @@ densha stop --all
 densha logs web -f
 densha status --json
 densha ports
+densha kill :3000              # free a port a foreign process holds
 ```
 
 ## Development

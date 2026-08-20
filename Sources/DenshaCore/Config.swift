@@ -98,6 +98,8 @@ public struct ResolvedService: Sendable, Equatable {
 }
 
 public struct PortScanRules: Sendable, Equatable {
+    public static let scannablePorts = 1024..<49152
+
     public static let systemProcessNames: Set<String> = [
         "AirPlayXPCHelper",
         "ControlCenter",

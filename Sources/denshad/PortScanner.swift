@@ -3,8 +3,6 @@ import DenshaCore
 import Foundation
 
 enum PortScanner {
-    static let scannablePorts = 1024..<49152
-
     static func listeningPorts() -> [ScannedPort] {
         var found: [ScannedPort] = []
         for pid in allProcessIdentifiers() {
@@ -34,7 +32,7 @@ enum PortScanner {
         var claimed = Set<Int>()
         var kept: [ScannedPort] = []
         for candidate in listening {
-            guard scannablePorts.contains(candidate.port) else { continue }
+            guard PortScanRules.scannablePorts.contains(candidate.port) else { continue }
             guard !portsOfLiveServices.contains(candidate.port) else { continue }
             guard !rules.ignores(port: candidate.port, processName: candidate.processName)
             else { continue }
