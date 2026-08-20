@@ -49,6 +49,38 @@ struct AppModelTests {
         #expect(actions.openedURLs.map(\.absoluteString) == ["http://localhost:5432"])
     }
 
+    @Test("killing an unclaimed port takes the ports the daemon reports back")
+    func killingAnUnclaimedPort() async {
+        let daemon = FakeDaemonService()
+        let model = AppModel(daemon: daemon, applicationActions: FakeApplicationActions())
+        let squatter = ScannedPort(port: 3000, pid: 4288, processName: "node")
+        daemon.portsToReturn = [ScannedPort(port: 5432, pid: 812, processName: "postgres")]
+
+        model.connect()
+        daemon.continuation.yield(.ports([squatter]))
+        await settle()
+        model.kill(squatter)
+        await settle()
+
+        #expect(daemon.commands == [.kill(port: 3000)])
+        #expect(model.scannedPorts.map(\.port) == [5432])
+        #expect(model.killingPorts.isEmpty)
+    }
+
+    @Test("a refused kill surfaces the reason and stops marking the port")
+    func refusedKillSurfacesTheReason() async {
+        let daemon = FakeDaemonService()
+        daemon.failure = DenshaError.portHeldByService(port: 3000, service: "storefront/web")
+        let model = AppModel(daemon: daemon, applicationActions: FakeApplicationActions())
+
+        model.kill(ScannedPort(port: 3000, pid: 4288, processName: "node"))
+        await settle()
+
+        #expect(
+            model.lastError == "port 3000 belongs to storefront/web — stop the service instead")
+        #expect(model.killingPorts.isEmpty)
+    }
+
     @Test("services are grouped by project, ungrouped ones first")
     func servicesAreGroupedByProject() async {
         let daemon = FakeDaemonService()
@@ -275,6 +307,8 @@ private final class FakeDaemonService: DaemonServing {
     let continuation: AsyncStream<LinkEvent>.Continuation
     private let stream: AsyncStream<LinkEvent>
     var commands: [DaemonCommand] = []
+    var portsToReturn: [ScannedPort]?
+    var failure: Error?
 
     init() {
         (stream, continuation) = AsyncStream.makeStream(of: LinkEvent.self)
@@ -286,7 +320,8 @@ private final class FakeDaemonService: DaemonServing {
 
     func run(_ command: DaemonCommand) async throws -> Response {
         commands.append(command)
-        return Response(id: commands.count, ok: true)
+        if let failure { throw failure }
+        return Response(id: commands.count, ok: true, ports: portsToReturn)
     }
 
     func stop() {

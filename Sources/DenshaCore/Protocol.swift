@@ -11,6 +11,7 @@ public enum Op: String, Codable, Sendable {
     case watch
     case input
     case ports
+    case kill
     case shutdown
 }
 
@@ -25,6 +26,7 @@ public enum DaemonCommand: Sendable, Equatable {
     case watch
     case input(name: String, data: String)
     case ports
+    case kill(port: Int)
     case shutdown
 }
 
@@ -36,10 +38,11 @@ public struct Request: Codable, Sendable {
     public var tail: Int?
     public var follow: Bool?
     public var data: String?
+    public var port: Int?
 
     public init(
         id: Int, op: Op, names: [String]? = nil, name: String? = nil,
-        tail: Int? = nil, follow: Bool? = nil, data: String? = nil
+        tail: Int? = nil, follow: Bool? = nil, data: String? = nil, port: Int? = nil
     ) {
         self.id = id
         self.op = op
@@ -48,6 +51,7 @@ public struct Request: Codable, Sendable {
         self.tail = tail
         self.follow = follow
         self.data = data
+        self.port = port
     }
 
     public init(id: Int, command: DaemonCommand) {
@@ -81,6 +85,9 @@ public struct Request: Codable, Sendable {
             self.data = data
         case .ports:
             self.op = .ports
+        case .kill(let port):
+            self.op = .kill
+            self.port = port
         case .shutdown:
             self.op = .shutdown
         }
@@ -106,6 +113,11 @@ public struct Request: Codable, Sendable {
             }
             return .input(name: name, data: data)
         case .ports: return .ports
+        case .kill:
+            guard let port else {
+                throw DenshaError.protocolViolation("kill requires \"port\"")
+            }
+            return .kill(port: port)
         case .shutdown: return .shutdown
         }
     }

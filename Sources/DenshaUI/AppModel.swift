@@ -14,6 +14,7 @@ public final class AppModel {
     var lastError: String?
     var selectedLogService: String?
     var busy: Set<String> = []
+    var killingPorts: Set<Int> = []
     var serviceEditor: ServiceEditorRequest?
 
     private let daemon: any DaemonServing
@@ -158,6 +159,20 @@ public final class AppModel {
                     }
                     return service.state != .starting && service.state != .stopping
                 })
+        }
+    }
+
+    func kill(_ scanned: ScannedPort) {
+        lastError = nil
+        killingPorts.insert(scanned.port)
+        Task {
+            do {
+                let response = try await daemon.run(.kill(port: scanned.port))
+                if let ports = response.ports { scannedPorts = ports }
+            } catch {
+                lastError = "\(error)"
+            }
+            killingPorts.remove(scanned.port)
         }
     }
 

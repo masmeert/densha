@@ -40,6 +40,18 @@ struct ProtocolTests {
         #expect(try Request(id: 3, command: .ports).command() == .ports)
     }
 
+    @Test("the kill request carries the port it must free")
+    func killRequestCarriesItsPort() throws {
+        #expect(try Request(id: 4, command: .kill(port: 3000)).command() == .kill(port: 3000))
+    }
+
+    @Test("a kill request without a port is rejected")
+    func killRequestNeedsAPort() throws {
+        let raw = Data(#"{"id":1,"op":"kill"}"#.utf8)
+        let request = try Wire.decoder.decode(Request.self, from: raw)
+        #expect(throws: DenshaError.self) { try request.command() }
+    }
+
     @Test("a message carrying id decodes as a response")
     func discriminatesResponse() throws {
         let raw = Data(#"{"id":7,"ok":true}"#.utf8)

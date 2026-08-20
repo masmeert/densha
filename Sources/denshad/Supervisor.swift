@@ -159,6 +159,43 @@ actor Supervisor {
         return unclaimed
     }
 
+    func killProcess(onPort port: Int) async throws -> [ScannedPort] {
+        guard let target = await rescanPorts().first(where: { $0.port == port }) else {
+            throw DenshaError.nothingListeningOnPort(port)
+        }
+        let group = getpgid(target.pid)
+        if let owner = order.first(where: { name in
+            guard let proc = procs[name], !proc.reaped else { return false }
+            return proc.pid == target.pid || proc.pid == group
+        }) {
+            throw DenshaError.portHeldByService(port: port, service: owner)
+        }
+        guard target.pid > 1, target.pid != getpid() else {
+            throw DenshaError.nothingListeningOnPort(port)
+        }
+
+        guard kill(target.pid, SIGTERM) == 0 else {
+            throw DenshaError.killFailed(pid: target.pid, reason: String(cString: strerror(errno)))
+        }
+        var signal = "SIGTERM"
+        if await !waitForRelease(of: port, by: target.pid, timeout: Defaults.stopTimeout) {
+            kill(target.pid, SIGKILL)
+            signal = "SIGKILL"
+            _ = await waitForRelease(of: port, by: target.pid, timeout: 1)
+        }
+        log("killed \(target.processName) (pid \(target.pid)) on port \(port) with \(signal)")
+        return await rescanPorts()
+    }
+
+    private func waitForRelease(of port: Int, by pid: pid_t, timeout: Double) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while PortScanner.listeningPorts(of: pid).contains(port) {
+            guard Date() < deadline else { return false }
+            try? await Task.sleep(for: .milliseconds(80))
+        }
+        return true
+    }
+
     func start(names: [String]?) async -> [String: String] {
         var targets = resolveTargets(names)
         if !targets.errors.isEmpty {

@@ -2,12 +2,15 @@ import DenshaCore
 import SwiftUI
 
 struct IconButtonStyle: ButtonStyle {
+    var filled: Color?
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .frame(width: 21, height: 21)
             .background(
                 RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .fill(Color.primary.opacity(configuration.isPressed ? 0.14 : 0))
+                    .fill(filled ?? Color.primary.opacity(configuration.isPressed ? 0.14 : 0))
+                    .opacity(filled != nil && configuration.isPressed ? 0.8 : 1)
             )
             .scaleEffect(configuration.isPressed ? 0.94 : 1)
             .animation(.easeOut(duration: 0.14), value: configuration.isPressed)

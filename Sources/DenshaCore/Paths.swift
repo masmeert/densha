@@ -72,6 +72,9 @@ public enum DenshaError: Error, CustomStringConvertible, Sendable {
     case ambiguousTarget(String, matches: [String])
     case serviceNotRunning(String)
     case noLogFile(String)
+    case nothingListeningOnPort(Int)
+    case portHeldByService(port: Int, service: String)
+    case killFailed(pid: Int32, reason: String)
 
     public var description: String {
         switch self {
@@ -97,6 +100,12 @@ public enum DenshaError: Error, CustomStringConvertible, Sendable {
             return "\(name) is not running"
         case .noLogFile(let name):
             return "no log file for \(name)"
+        case .nothingListeningOnPort(let port):
+            return "nothing unclaimed is listening on port \(port)"
+        case .portHeldByService(let port, let service):
+            return "port \(port) belongs to \(service) — stop the service instead"
+        case .killFailed(let pid, let reason):
+            return "cannot kill pid \(pid): \(reason)"
         }
     }
 }

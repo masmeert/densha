@@ -184,6 +184,14 @@ actor SocketServer {
             connection.send(
                 Response(id: requestID, ok: true, ports: await supervisor.rescanPorts()))
 
+        case .kill(let port):
+            do {
+                let ports = try await supervisor.killProcess(onPort: port)
+                connection.send(Response(id: requestID, ok: true, ports: ports))
+            } catch {
+                connection.send(Response.failure(id: requestID, "\(error)"))
+            }
+
         case .start(let names):
             let errors = await supervisor.start(names: names)
             connection.send(response(requestID, errors, await supervisor.snapshot()))

@@ -3,10 +3,13 @@ import SwiftUI
 
 struct ScannedPortRow: View {
     let scanned: ScannedPort
+    let killing: Bool
     let onOpen: () -> Void
     let onCopyURL: () -> Void
+    let onKill: () -> Void
 
     @State private var hovering = false
+    @State private var armed = false
 
     private var conflicting: Bool { scanned.conflictsWith != nil }
 
@@ -46,25 +49,7 @@ struct ScannedPortRow: View {
             .help(helpText)
             .accessibilityLabel(accessibilityText)
 
-            HStack(spacing: 2) {
-                Button(action: onCopyURL) {
-                    Image(systemName: "document.on.document")
-                        .font(.system(size: 10, weight: .semibold))
-                }
-                .buttonStyle(IconButtonStyle())
-                .help("Copy http://localhost:\(scanned.port)")
-                .accessibilityLabel("Copy the address of port \(scanned.port)")
-
-                Button(action: onOpen) {
-                    Image(systemName: "arrow.up.forward")
-                        .font(.system(size: 10, weight: .semibold))
-                }
-                .buttonStyle(IconButtonStyle())
-                .help("Open http://localhost:\(scanned.port)")
-                .accessibilityLabel("Open port \(scanned.port) in the browser")
-            }
-            .opacity(hovering ? 1 : 0)
-            .animation(.easeOut(duration: 0.14), value: hovering)
+            actions
         }
         .padding(.horizontal, 12)
         .frame(height: 28)
@@ -74,11 +59,63 @@ struct ScannedPortRow: View {
                 .padding(.horizontal, 4)
         )
         .contentShape(Rectangle())
-        .onHover { hovering = $0 }
+        .onHover { inside in
+            hovering = inside
+            if !inside { armed = false }
+        }
         .contextMenu {
             Button("Open in Browser") { onOpen() }
             Button("Copy Address") { onCopyURL() }
+            Divider()
+            Button("Kill \(scanned.processName)", role: .destructive) { onKill() }
         }
+    }
+
+    @ViewBuilder private var actions: some View {
+        HStack(spacing: 2) {
+            Button(action: onCopyURL) {
+                Image(systemName: "document.on.document")
+                    .font(.system(size: 10, weight: .semibold))
+            }
+            .buttonStyle(IconButtonStyle())
+            .help("Copy http://localhost:\(scanned.port)")
+            .accessibilityLabel("Copy the address of port \(scanned.port)")
+
+            Button(action: onOpen) {
+                Image(systemName: "arrow.up.forward")
+                    .font(.system(size: 10, weight: .semibold))
+            }
+            .buttonStyle(IconButtonStyle())
+            .help("Open http://localhost:\(scanned.port)")
+            .accessibilityLabel("Open port \(scanned.port) in the browser")
+
+            if killing {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: 21, height: 21)
+            } else {
+                Button(role: armed ? .destructive : nil) {
+                    if armed {
+                        armed = false
+                        onKill()
+                    } else {
+                        armed = true
+                    }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(armed ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+                }
+                .buttonStyle(IconButtonStyle(filled: armed ? .red : nil))
+                .help(armed ? "Click again to kill" : killHelpText)
+                .accessibilityLabel(
+                    armed
+                        ? "Confirm killing \(scanned.processName) on port \(scanned.port)"
+                        : "Kill \(scanned.processName) on port \(scanned.port)")
+            }
+        }
+        .opacity(hovering || killing ? 1 : 0)
+        .animation(.easeOut(duration: 0.14), value: hovering)
     }
 
     private var helpText: String {
@@ -87,6 +124,14 @@ struct ScannedPortRow: View {
             text += " — holds the port \(conflictsWith) needs"
         }
         return text + " — open http://localhost:\(scanned.port)"
+    }
+
+    private var killHelpText: String {
+        var text = "Kill \(scanned.processName) (pid \(scanned.pid))"
+        if let conflictsWith = scanned.conflictsWith {
+            text += " to free port \(scanned.port) for \(conflictsWith)"
+        }
+        return text
     }
 
     private var accessibilityText: String {
@@ -102,7 +147,9 @@ struct ScannedPortRow: View {
     #Preview("Scanned ports") {
         VStack(spacing: 2) {
             ForEach(Sample.scannedPorts) { scanned in
-                ScannedPortRow(scanned: scanned, onOpen: {}, onCopyURL: {})
+                ScannedPortRow(
+                    scanned: scanned, killing: scanned.port == 6379,
+                    onOpen: {}, onCopyURL: {}, onKill: {})
             }
         }
         .frame(width: 316)

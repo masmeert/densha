@@ -64,7 +64,7 @@ enum PortScanner {
         return identifiers.prefix(Int(written) / MemoryLayout<pid_t>.size).filter { $0 > 0 }
     }
 
-    private static func listeningPorts(of pid: pid_t) -> [Int] {
+    static func listeningPorts(of pid: pid_t) -> [Int] {
         let probed = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, nil, 0)
         guard probed > 0 else { return [] }
         let capacity = Int(probed) / MemoryLayout<proc_fdinfo>.size + 16

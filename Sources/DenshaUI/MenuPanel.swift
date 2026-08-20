@@ -177,10 +177,12 @@ public struct MenuPanel: View {
                         ForEach(model.scannedPorts) { scanned in
                             ScannedPortRow(
                                 scanned: scanned,
+                                killing: model.killingPorts.contains(scanned.port),
                                 onOpen: { model.openInBrowser(scanned) },
                                 onCopyURL: {
                                     model.copyToClipboard("http://localhost:\(scanned.port)")
-                                }
+                                },
+                                onKill: { model.kill(scanned) }
                             )
                         }
                     }

@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import DenshaCore
@@ -111,6 +112,39 @@ struct SupervisorTests {
         #expect(await supervisor.snapshot().first { $0.name == "storefront/web" }?.isLive == true)
 
         await supervisor.stopAll()
+    }
+
+    @Test("killing an unclaimed port ends the process that holds it")
+    func killingAnUnclaimedPortEndsItsProcess() async throws {
+        let port = 47_291
+        let listener = Process()
+        listener.executableURL = URL(fileURLWithPath: "/usr/bin/nc")
+        listener.arguments = ["-l", "127.0.0.1", "\(port)"]
+        try listener.run()
+        defer { if listener.isRunning { listener.terminate() } }
+
+        let supervisor = Supervisor(config: Config(services: []))
+        var listed = false
+        for _ in 0..<40 where !listed {
+            listed = await supervisor.rescanPorts().contains { $0.port == port }
+            if !listed { try? await Task.sleep(for: .milliseconds(50)) }
+        }
+        #expect(listed)
+
+        let remaining = try await supervisor.killProcess(onPort: port)
+
+        #expect(!remaining.contains { $0.port == port })
+        listener.waitUntilExit()
+        #expect(listener.terminationReason == .uncaughtSignal)
+    }
+
+    @Test("a port that nothing unclaimed listens on cannot be killed")
+    func killingAQuietPortIsRefused() async {
+        let supervisor = Supervisor(config: Config(services: []))
+
+        await #expect(throws: DenshaError.self) {
+            _ = try await supervisor.killProcess(onPort: 1)
+        }
     }
 
     private var twoProjects: [ResolvedService] {

@@ -53,7 +53,9 @@ live service already holds a port it needs. Top-level `[[service]]` entries stay
 ungrouped and keep their bare name.
 
 The menu bar also lists **Other ports**: processes holding a local port that none of
-your running services owns. Tune what shows up with:
+your running services owns. Hover one to copy or open its address, or to kill whatever
+holds it — the ✕ goes red and takes a second click. Densha sends SIGTERM and follows
+with SIGKILL if the process holds on. Tune what shows up with:
 
 ```toml
 [scan]
