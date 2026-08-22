@@ -3,6 +3,21 @@
     <channel>
         <title>Densha</title>
         <item>
+            <title>0.4.1</title>
+            <pubDate>Sat, 22 Aug 2026 09:39:51 +0200</pubDate>
+            <link>https://github.com/masmeert/densha</link>
+            <sparkle:version>9</sparkle:version>
+            <sparkle:shortVersionString>0.4.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>Densha 0.4.1</h2>
+<h3>Changed</h3>
+<ul>
+<li>A repo-wide cleanup removed some 280 lines of dead code, single-use wrappers, and hand-rolled machinery the platform already ships — among it the log window's custom follow-scroll, now handed to SwiftUI, and a duplicated connection lock, now one shared primitive. Nothing changes in how Densha looks or behaves; the app is simply smaller.</li>
+</ul>
+]]></description>
+            <enclosure url="https://github.com/masmeert/densha/releases/download/v0.4.1/Densha-0.4.1-universal.zip" length="5256358" type="application/octet-stream" sparkle:edSignature="kBX1gnXqneCc86AD4Xdn462jiwlNovu1kqiDjHWx39i6gYA+1gNoxWfD7PjnnxgdtMZj25YiX3InOEEDXKNTCg=="/>
+        </item>
+        <item>
             <title>0.4.0</title>
             <pubDate>Thu, 20 Aug 2026 09:36:02 +0200</pubDate>
             <link>https://github.com/masmeert/densha</link>
@@ -50,22 +65,6 @@
 </ul>
 ]]></description>
             <enclosure url="https://github.com/masmeert/densha/releases/download/v0.3.2/Densha-0.3.2-universal.zip" length="4961109" type="application/octet-stream" sparkle:edSignature="CfkEBRrevl2pR0aMNFVS2sgjFmd0usMD+0geAhjHyVQWLPOGPqxnikAit1ekOH7R7XrsktWqU2TKh6Z2bvgcBQ=="/>
-        </item>
-        <item>
-            <title>0.3.1</title>
-            <pubDate>Wed, 19 Aug 2026 16:11:42 +0200</pubDate>
-            <link>https://github.com/masmeert/densha</link>
-            <sparkle:version>6</sparkle:version>
-            <sparkle:shortVersionString>0.3.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>Densha 0.3.1</h2>
-<h3>Added</h3>
-<ul>
-<li>Densha is now MIT licensed.</li>
-<li>The app bundles its own license and the notices for every third-party component it ships, satisfying the attribution terms of Sparkle, TOMLDecoder, and swift-argument-parser.</li>
-</ul>
-]]></description>
-            <enclosure url="https://github.com/masmeert/densha/releases/download/v0.3.1/Densha-0.3.1-universal.zip" length="4919332" type="application/octet-stream" sparkle:edSignature="sV9/PA2EvtMTPyYx1V9HZhabY8qAZsKrMizwbITRDemUpqUdTTQfxdrWExJ5E/5LH9hJ48RqK9vG89ZJHWEoBA=="/>
         </item>
     </channel>
 </rss>
