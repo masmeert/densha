@@ -22,7 +22,6 @@ render() {
     cat <<SWIFT
 public enum DenshaVersion {
     public static let marketing = "$MARKETING_VERSION"
-    public static let build = "$BUILD_NUMBER"
 }
 SWIFT
 }

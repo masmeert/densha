@@ -69,10 +69,7 @@ public final class AppModel {
     public var anyFailed: Bool { services.contains { $0.state == .failed } }
     public var liveCount: Int { services.count(where: \.isLive) }
 
-    public var menuBarSymbol: String {
-        if anyFailed { return "tram.fill" }
-        return anyLive ? "tram.fill" : "tram"
-    }
+    public var menuBarSymbol: String { (anyFailed || anyLive) ? "tram.fill" : "tram" }
 
     func toggle(_ service: ServiceStatus) {
         service.isLive ? stop(service.name) : start(service.name)
@@ -201,7 +198,7 @@ public final class AppModel {
         }
     }
 
-    struct ServiceEditorRequest: Identifiable, Equatable {
+    struct ServiceEditorRequest: Identifiable {
         let id = UUID()
         var editing: String?
         var project: String?

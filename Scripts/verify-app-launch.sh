@@ -7,7 +7,6 @@ source ./Scripts/version-env.sh
 source ./Scripts/sparkle-env.sh
 
 APP_BUNDLE="${1:-dist/Densha.app}"
-STAY_ALIVE_SECONDS="${DENSHA_LAUNCH_SMOKE_SECONDS:-5}"
 FATAL_PATTERN='Fatal error|Illegal instruction|Trace/BPT trap|Segmentation fault|dyld\[|Library not loaded|Symbol not found'
 
 log() { printf '%s\n' "$*"; }
@@ -21,11 +20,6 @@ fail() {
     fi
     exit 1
 }
-
-if [ "${DENSHA_SKIP_LAUNCH_SMOKE:-0}" = "1" ]; then
-    log "launch smoke: skipped (DENSHA_SKIP_LAUNCH_SMOKE=1)"
-    exit 0
-fi
 
 if [ ! -d "$APP_BUNDLE" ]; then
     fail "no bundle at $APP_BUNDLE — run 'make app' first"
@@ -194,7 +188,7 @@ fi
 LAUNCH_COMMAND+=("$SMOKE_BIN")
 (cd "$SMOKE_DIR" && exec "${LAUNCH_COMMAND[@]}") > "$LAUNCH_LOG" 2>&1 &
 SMOKE_PID=$!
-for _ in $(seq 1 "$((STAY_ALIVE_SECONDS * 4))"); do
+for _ in $(seq 1 20); do
     if ! kill -0 "$SMOKE_PID" 2> /dev/null; then
         break
     fi
@@ -202,7 +196,7 @@ for _ in $(seq 1 "$((STAY_ALIVE_SECONDS * 4))"); do
 done
 
 if kill -0 "$SMOKE_PID" 2> /dev/null; then
-    log "app OK: stayed alive ${STAY_ALIVE_SECONDS}s with the checkout unreadable"
+    log "app OK: stayed alive 5s with the checkout unreadable"
 else
     wait "$SMOKE_PID" 2> /dev/null || true
     if grep -qE "$FATAL_PATTERN" "$LAUNCH_LOG" 2> /dev/null; then

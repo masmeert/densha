@@ -9,11 +9,10 @@ enum AnsiRenderer {
         var dim = false
         var italic = false
         var underline = false
-
-        mutating func reset() { self = Style() }
     }
 
-    static func attributed(_ text: String, base: Color = .primary) -> AttributedString {
+    static func attributed(_ text: String) -> AttributedString {
+        let base = Color.primary
         guard text.contains("\u{1B}") else {
             var plain = AttributedString(text)
             plain.foregroundColor = base
@@ -109,7 +108,7 @@ enum AnsiRenderer {
         while i < codes.count {
             let code = codes[i]
             switch code {
-            case 0: style.reset()
+            case 0: style = Style()
             case 1: style.bold = true
             case 2: style.dim = true
             case 3: style.italic = true

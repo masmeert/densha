@@ -13,14 +13,12 @@ enum HealthCheck {
     }
 
     static func tcp(port: Int, timeout: Double) async -> Bool {
-        await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .utility).async {
-                continuation.resume(returning: tcpSync(port: port, timeout: timeout))
-            }
-        }
+        await Task.detached(priority: .utility) {
+            tcpSync(port: port, timeout: timeout)
+        }.value
     }
 
-    static func tcpSync(port: Int, timeout: Double) -> Bool {
+    private static func tcpSync(port: Int, timeout: Double) -> Bool {
         let fd = socket(AF_INET, SOCK_STREAM, 0)
         guard fd >= 0 else { return false }
         defer { close(fd) }
@@ -59,10 +57,7 @@ enum HealthCheck {
         request.timeoutInterval = timeout
         request.cachePolicy = .reloadIgnoringLocalCacheData
 
-        let config = URLSessionConfiguration.ephemeral
-        config.timeoutIntervalForRequest = timeout
-        config.timeoutIntervalForResource = timeout
-        let session = URLSession(configuration: config)
+        let session = URLSession(configuration: .ephemeral)
         defer { session.finishTasksAndInvalidate() }
 
         do {

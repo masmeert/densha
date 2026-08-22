@@ -7,6 +7,7 @@ import SwiftUI
 @main
 struct DenshaApp: App {
     @State private var model = AppModel()
+    // Never read, but initializing Updater.shared starts Sparkle's scheduled update checks.
     private let updater = Updater.shared
 
     var body: some Scene {

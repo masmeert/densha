@@ -93,7 +93,7 @@ struct LogStoreTests {
             .appendingPathComponent("densha-test-\(UUID().uuidString)")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let url = dir.appendingPathComponent("\(name).log")
-        return (LogStore(name: name, fileURL: url, ringCapacity: capacity), url)
+        return (LogStore(fileURL: url, ringCapacity: capacity), url)
     }
 
     @Test("splits a stream into lines on newlines only")
@@ -156,7 +156,7 @@ struct LogStoreTests {
             .appendingPathComponent("densha-test-\(UUID().uuidString)")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let store = LogStore(
-            name: "t", fileURL: dir.appendingPathComponent("t.log"),
+            fileURL: dir.appendingPathComponent("t.log"),
             ringCapacity: 100, maxPendingBytes: 32)
         var produced: [LogLine] = []
         for _ in 0..<10 {

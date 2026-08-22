@@ -21,23 +21,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Select Xcode
-        run: |
-          set -euo pipefail
-          for candidate in /Applications/Xcode_26.4.app \
-                           /Applications/Xcode_26.3.app \
-                           /Applications/Xcode_26.2.app; do
-            if [ -d "$candidate" ]; then
-              sudo xcode-select -s "$candidate/Contents/Developer"
-              echo "DEVELOPER_DIR=$candidate/Contents/Developer" >> "$GITHUB_ENV"
-              break
-            fi
-          done
-          version="$(xcodebuild -version)"
-          version="${version%%$'\n'*}"
-          case "$version" in
-            "Xcode 26."*) ;;
-            *) echo "::error::expected Xcode 26.x, runner offers '$version'"; exit 1 ;;
-          esac
+        run: ./Scripts/select-xcode.sh
 
       - name: Toolchain
         id: toolchain

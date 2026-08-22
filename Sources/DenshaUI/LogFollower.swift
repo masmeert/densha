@@ -11,49 +11,26 @@ class LogFollower {
 
     private let maxLines = 5000
     private var thread: Thread?
-    private let control = Control()
-
-    final class Control: @unchecked Sendable {
-        private let lock = NSLock()
-        private var stopping = false
-        private var client: DaemonClient?
-
-        var isStopping: Bool {
-            lock.lock()
-            defer { lock.unlock() }
-            return stopping
-        }
-        func set(_ c: DaemonClient?) {
-            lock.lock()
-            client = c
-            lock.unlock()
-        }
-        func stop() {
-            lock.lock()
-            stopping = true
-            let c = client
-            client = nil
-            lock.unlock()
-            c?.close()
-        }
-    }
+    private let control = ConnectionControl()
 
     init(service: String) {
         self.service = service
     }
 
-    private static var isRunningForPreviews: Bool {
-        ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
-    }
+    #if DEBUG
+        private static var isRunningForPreviews: Bool {
+            ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+        }
+    #endif
 
     func start() {
         guard thread == nil else { return }
-        if Self.isRunningForPreviews {
-            #if DEBUG
+        #if DEBUG
+            if Self.isRunningForPreviews {
                 lines = Sample.logLines
-            #endif
-            return
-        }
+                return
+            }
+        #endif
         let service = service
         let control = control
         let thread = Thread { [weak self] in

@@ -116,10 +116,13 @@ struct ProtocolTests {
     @Test("invalid wire field combinations are rejected at the boundary")
     func invalidCommandsAreRejected() {
         #expect(throws: (any Error).self) {
-            try Request(id: 1, op: .logs).command()
+            try Wire.decoder.decode(Request.self, from: Data(#"{"id":1,"op":"logs"}"#.utf8))
+                .command()
         }
         #expect(throws: (any Error).self) {
-            try Request(id: 1, op: .input, name: "web").command()
+            try Wire.decoder.decode(
+                Request.self, from: Data(#"{"id":1,"op":"input","name":"web"}"#.utf8)
+            ).command()
         }
     }
 
@@ -160,7 +163,8 @@ struct ProtocolTests {
 
     @Test("omitting names means all services")
     func namesOptional() throws {
-        let request = Request(id: 1, op: .start)
+        let request = try Wire.decoder.decode(
+            Request.self, from: Data(#"{"id":1,"op":"start"}"#.utf8))
         let decoded = try Wire.decoder.decode(Request.self, from: try Wire.encoder.encode(request))
         #expect(decoded.names == nil)
     }

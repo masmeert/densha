@@ -56,12 +56,4 @@ case "$URL" in
     *) fail "newest item points at an unexpected URL: $URL" ;;
 esac
 
-ITEMS="$(xmllint --xpath 'count(//item)' "$APPCAST" 2> /dev/null || echo 0)"
-
-echo "appcast OK"
-echo "  newest:  $SHORT_VERSION ($BUILD)"
-echo "  signed:  ${SIGNATURE:0:24}…"
-echo "  url:     $URL"
-echo "  notes:   $(printf '%s' "$DESCRIPTION" | wc -c | tr -d ' ') bytes"
-echo "  items:   $ITEMS"
-echo "  feed:    $SPARKLE_FEED_URL"
+echo "appcast OK: $SHORT_VERSION ($BUILD), signed, notes present, $URL"

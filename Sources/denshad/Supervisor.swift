@@ -4,7 +4,6 @@ import Foundation
 
 enum ProcessEvent: Sendable {
     case output(Data)
-    case eof
     case exited(status: Int32)
 }
 
@@ -31,7 +30,6 @@ final class RunningProcess {
     var killTask: Task<Void, Never>?
     var stopRequested = false
     var reaped = false
-    var sawEOF = false
     var everHealthy = false
     var healthFailures = 0
 
@@ -61,7 +59,7 @@ actor Supervisor {
         self.config = config
         self.order = config.services.map(\.name)
         for svc in config.services {
-            stores[svc.name] = LogStore(name: svc.name, fileURL: Paths.logFile(for: svc.name))
+            stores[svc.name] = LogStore(fileURL: Paths.logFile(for: svc.name))
             status[svc.name] = ServiceStatus(
                 name: svc.name, state: .stopped, port: svc.port,
                 health: svc.health == nil ? .none : .pending,
@@ -75,7 +73,7 @@ actor Supervisor {
         order = new.services.map(\.name)
         for svc in new.services {
             if stores[svc.name] == nil {
-                stores[svc.name] = LogStore(name: svc.name, fileURL: Paths.logFile(for: svc.name))
+                stores[svc.name] = LogStore(fileURL: Paths.logFile(for: svc.name))
             }
             if var existing = status[svc.name] {
                 existing.command = svc.command
@@ -104,7 +102,7 @@ actor Supervisor {
     func reload() throws -> [String] {
         let new = try ConfigLoader.load()
         adoptConfig(new)
-        broadcast(.reloaded(services: snapshot(), warnings: new.warnings))
+        eventBroker.broadcast(.reloaded(services: snapshot(), warnings: new.warnings))
         _ = filterListeningPorts()
         return new.warnings
     }
@@ -155,7 +153,7 @@ actor Supervisor {
             among: listeningPorts, services: snapshot(), rules: config.scan)
         guard unclaimed != scannedPorts else { return scannedPorts }
         scannedPorts = unclaimed
-        broadcast(.ports(unclaimed))
+        eventBroker.broadcast(.ports(unclaimed))
         return unclaimed
     }
 
@@ -262,7 +260,6 @@ actor Supervisor {
                     continue
                 }
                 if n == 0 {
-                    cont.yield(.eof)
                     holder.read?.cancel()
                     holder.read = nil
                     return
@@ -273,7 +270,6 @@ actor Supervisor {
                 case EAGAIN:
                     return
                 default:
-                    cont.yield(.eof)
                     holder.read?.cancel()
                     holder.read = nil
                     return
@@ -352,10 +348,8 @@ actor Supervisor {
         case .output(let data):
             guard let store = stores[name] else { return }
             for line in store.ingest(data) {
-                broadcastLog(name: name, line: line)
+                eventBroker.broadcastLog(name: name, line: line)
             }
-        case .eof:
-            procs[name]?.sawEOF = true
         case .exited(let raw):
             finalize(name: name, raw: raw)
         }
@@ -368,7 +362,7 @@ actor Supervisor {
         proc.healthTask?.cancel()
 
         if let store = stores[name], let last = store.flushPending() {
-            broadcastLog(name: name, line: last)
+            eventBroker.broadcastLog(name: name, line: last)
         }
 
         proc.holder.teardown()
@@ -514,7 +508,7 @@ actor Supervisor {
     }
 
     func logLines(name: String, tail: Int?) throws -> [LogLine] {
-        guard let store = stores[try resolveOne(name)] else {
+        guard let store = stores[name] else {
             throw DenshaError.noSuchService(name)
         }
         return store.tail(tail)
@@ -555,7 +549,7 @@ actor Supervisor {
     private func flushPendingLines() {
         for (name, store) in stores where procs[name] != nil {
             if let line = store.flushPending() {
-                broadcastLog(name: name, line: line)
+                eventBroker.broadcastLog(name: name, line: line)
             }
         }
     }
@@ -570,16 +564,8 @@ actor Supervisor {
     }
 
     private func broadcastStatus() {
-        broadcast(.status(snapshot()))
+        eventBroker.broadcast(.status(snapshot()))
         filterListeningPorts()
-    }
-
-    private func broadcast(_ event: DaemonEvent) {
-        eventBroker.broadcast(event)
-    }
-
-    private func broadcastLog(name: String, line: LogLine) {
-        eventBroker.broadcastLog(name: name, line: line)
     }
 
     struct Targets {
@@ -655,7 +641,7 @@ actor Supervisor {
     private func note(_ service: String, _ message: String) {
         guard let store = stores[service] else { return }
         for line in store.ingest(Data("densha: \(message)\r\n".utf8)) {
-            broadcastLog(name: service, line: line)
+            eventBroker.broadcastLog(name: service, line: line)
         }
     }
 

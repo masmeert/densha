@@ -40,20 +40,6 @@ public struct Request: Codable, Sendable {
     public var data: String?
     public var port: Int?
 
-    public init(
-        id: Int, op: Op, names: [String]? = nil, name: String? = nil,
-        tail: Int? = nil, follow: Bool? = nil, data: String? = nil, port: Int? = nil
-    ) {
-        self.id = id
-        self.op = op
-        self.names = names
-        self.name = name
-        self.tail = tail
-        self.follow = follow
-        self.data = data
-        self.port = port
-    }
-
     public init(id: Int, command: DaemonCommand) {
         self.id = id
         switch command {
@@ -336,11 +322,7 @@ extension ServerMessage: Decodable {
 }
 
 public enum Wire {
-    public static let encoder: JSONEncoder = {
-        let e = JSONEncoder()
-        e.outputFormatting = []
-        return e
-    }()
+    public static let encoder = JSONEncoder()
 
     public static let decoder = JSONDecoder()
 

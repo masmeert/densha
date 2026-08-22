@@ -97,36 +97,23 @@ struct PackageManifest {
             command = nil
             return
         }
-        command = PackageManifest.runner(in: directory).command(script)
+        command = "\(PackageManifest.runner(in: directory)) \(script)"
     }
 
-    enum Runner: String {
-        case npm, pnpm, yarn, bun
-
-        func command(_ script: String) -> String {
-            switch self {
-            case .npm: return "npm run \(script)"
-            case .pnpm: return "pnpm \(script)"
-            case .yarn: return "yarn \(script)"
-            case .bun: return "bun run \(script)"
-            }
-        }
-    }
-
-    static func runner(in directory: URL) -> Runner {
-        let lockfiles: [(String, Runner)] = [
-            ("pnpm-lock.yaml", .pnpm),
-            ("yarn.lock", .yarn),
-            ("bun.lock", .bun),
-            ("bun.lockb", .bun),
-            ("package-lock.json", .npm),
+    static func runner(in directory: URL) -> String {
+        let lockfiles: [(String, String)] = [
+            ("pnpm-lock.yaml", "pnpm"),
+            ("yarn.lock", "yarn"),
+            ("bun.lock", "bun run"),
+            ("bun.lockb", "bun run"),
+            ("package-lock.json", "npm run"),
         ]
-        for (file, runner) in lockfiles
+        for (file, prefix) in lockfiles
         where FileManager.default.fileExists(
             atPath: directory.appendingPathComponent(file).path)
         {
-            return runner
+            return prefix
         }
-        return .npm
+        return "npm run"
     }
 }

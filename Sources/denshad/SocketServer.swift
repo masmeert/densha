@@ -75,7 +75,6 @@ actor SocketServer {
     private let path: String
     private var listener: UnixSocket?
     private var acceptTask: Task<Void, Never>?
-    private var connectionCounter = 0
 
     init(supervisor: Supervisor, path: String) {
         self.supervisor = supervisor
@@ -99,9 +98,9 @@ actor SocketServer {
 
     private func acceptLoop(_ listener: UnixSocket) async {
         while !Task.isCancelled {
-            let accepted: UnixSocket?
+            let socket: UnixSocket
             do {
-                accepted = try await withCheckedThrowingContinuation {
+                socket = try await withCheckedThrowingContinuation {
                     (continuation: CheckedContinuation<UnixSocket, Error>) in
                     DispatchQueue.global(qos: .userInitiated).async {
                         do {
@@ -114,9 +113,7 @@ actor SocketServer {
             } catch {
                 return
             }
-            guard let socket = accepted else { return }
-            connectionCounter += 1
-            let connection = Connection(socket: socket, label: "\(connectionCounter)")
+            let connection = Connection(socket: socket, label: "fd\(socket.fd)")
             Task { [weak self] in
                 await self?.serve(connection)
             }

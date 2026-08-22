@@ -152,8 +152,6 @@ private struct LogTranscript: View {
     let following: Bool
     let showTimestamps: Bool
 
-    private static let bottomAnchor = UInt64.max
-
     private var lines: [LogLine] {
         LogTranscriptText.visible(follower.lines, query: query)
     }
@@ -185,17 +183,17 @@ private struct LogTranscript: View {
                         .padding(.vertical, 1)
                         .id(line.seq)
                     }
-                    Color.clear.frame(height: 1).id(Self.bottomAnchor)
                 }
                 .padding(.vertical, 4)
             }
             .background(Color(nsColor: .textBackgroundColor))
-            .onChange(of: lines.last?.seq) { _, _ in
-                guard following else { return }
-                proxy.scrollTo(Self.bottomAnchor, anchor: .bottom)
-            }
+            .defaultScrollAnchor(.bottom)
+            .defaultScrollAnchor(following ? .bottom : nil, for: .sizeChanges)
+            // defaultScrollAnchor only applies on size changes, so the jump when
+            // follow turns back on still needs a proxy.
             .onChange(of: following) { _, isFollowing in
-                if isFollowing { proxy.scrollTo(Self.bottomAnchor, anchor: .bottom) }
+                guard isFollowing, let last = lines.last?.seq else { return }
+                proxy.scrollTo(last, anchor: .bottom)
             }
         }
     }

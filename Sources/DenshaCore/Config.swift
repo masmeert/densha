@@ -438,18 +438,11 @@ public enum ConfigLoader {
     }
 
     public static func abbreviateTilde(_ path: String) -> String {
-        let home = NSHomeDirectory()
-        if path == home { return "~" }
-        if path.hasPrefix(home + "/") { return "~" + path.dropFirst(home.count) }
-        return path
+        (path as NSString).abbreviatingWithTildeInPath
     }
 
     public static func expandTilde(_ path: String) -> String {
-        if path == "~" { return NSHomeDirectory() }
-        if path.hasPrefix("~/") {
-            return NSHomeDirectory() + String(path.dropFirst(1))
-        }
-        return path
+        (path as NSString).expandingTildeInPath
     }
 
     static func describe(_ error: DecodingError) -> String {

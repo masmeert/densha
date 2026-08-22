@@ -82,7 +82,7 @@ public struct ConfigDocument {
             try insert(TOML.block(service, header: "[[service]]", indent: ""), at: lines.count)
             return
         }
-        guard let end = endOfProject(named: project) else {
+        guard let end = projectRegion(named: project)?.upperBound else {
             throw ConfigError.invalid(
                 service: nil, reason: "no [[project]] named \"\(project)\" in services.toml")
         }
@@ -197,10 +197,6 @@ public struct ConfigDocument {
     private func isBlankOrComment(_ line: String) -> Bool {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         return trimmed.isEmpty || trimmed.hasPrefix("#")
-    }
-
-    private func endOfProject(named project: String) -> Int? {
-        projectRegion(named: project)?.upperBound
     }
 
     private func projectRegion(named project: String) -> Range<Int>? {

@@ -9,8 +9,6 @@ public struct RingBuffer {
         storage = Array(repeating: nil, count: max(1, capacity))
     }
 
-    public var capacity: Int { storage.count }
-
     public mutating func append(_ line: LogLine) {
         storage[head] = line
         head = (head + 1) % storage.count
@@ -30,15 +28,9 @@ public struct RingBuffer {
         return (0..<take).compactMap { storage[(start + $0) % storage.count] }
     }
 
-    public mutating func removeAll() {
-        storage = Array(repeating: nil, count: storage.count)
-        head = 0
-        count = 0
-    }
 }
 
 public final class LogStore {
-    public let name: String
     private let fileURL: URL
     private let maxFileBytes: Int
     private let maxPendingBytes: Int
@@ -52,13 +44,11 @@ public final class LogStore {
     private var bytesWritten = 0
 
     public init(
-        name: String,
         fileURL: URL,
         ringCapacity: Int = 5000,
         maxFileBytes: Int = 8 * 1024 * 1024,
         maxPendingBytes: Int = 64 * 1024
     ) {
-        self.name = name
         self.fileURL = fileURL
         self.ring = RingBuffer(capacity: ringCapacity)
         self.maxFileBytes = maxFileBytes
@@ -123,11 +113,6 @@ public final class LogStore {
     public func tail(_ n: Int?) -> [LogLine] {
         guard let n else { return ring.all }
         return ring.tail(n)
-    }
-
-    public func clear() {
-        ring.removeAll()
-        pending.removeAll(keepingCapacity: false)
     }
 
     private func writeToFile(_ data: Data) {

@@ -10,6 +10,7 @@ public struct MenuPanel: View {
 
     @AppStorage("scannedPortsExpanded") private var scannedPortsExpanded = false
     @AppStorage("collapsedGroups") private var collapsedGroupsData = Data()
+    @State private var stopAllHovering = false
 
     private static let visiblePortRows = 6
 
@@ -236,12 +237,26 @@ public struct MenuPanel: View {
     }
 
     private var footer: some View {
-        HStack(spacing: 8) {
-            FooterButton(
-                title: "Stop all", systemImage: "stop.fill",
-                disabled: !model.anyLive
-            ) { model.stopAll() }
+        Button {
+            model.stopAll()
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "stop.fill").font(.system(size: 9, weight: .semibold))
+                Text("Stop all").font(.system(size: 12))
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 30)
+            .background(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(Color.primary.opacity(stopAllHovering && model.anyLive ? 0.09 : 0.05))
+            )
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .disabled(!model.anyLive)
+        .opacity(model.anyLive ? 1 : 0.4)
+        .onHover { stopAllHovering = $0 }
+        .animation(.easeOut(duration: 0.14), value: stopAllHovering)
         .padding(.horizontal, 12)
         .padding(.top, 8)
         .padding(.bottom, 10)
@@ -390,36 +405,6 @@ private struct GroupHeader: View {
         .contextMenu {
             Button(project.map { "New Service in \($0)…" } ?? "New Service…", action: onAddService)
         }
-    }
-}
-
-private struct FooterButton: View {
-    let title: String
-    let systemImage: String
-    let disabled: Bool
-    let action: () -> Void
-
-    @State private var hovering = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 5) {
-                Image(systemName: systemImage).font(.system(size: 9, weight: .semibold))
-                Text(title).font(.system(size: 12))
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 30)
-            .background(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(Color.primary.opacity(hovering && !disabled ? 0.09 : 0.05))
-            )
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .disabled(disabled)
-        .opacity(disabled ? 0.4 : 1)
-        .onHover { hovering = $0 }
-        .animation(.easeOut(duration: 0.14), value: hovering)
     }
 }
 

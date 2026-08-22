@@ -48,24 +48,19 @@ public final class UnixSocket: @unchecked Sendable {
         guard fd >= 0 else {
             throw DenshaError.daemonUnreachable("socket(): \(errnoText())")
         }
-        do {
-            let rc = try withAddress(path) { sa, len in Darwin.connect(fd, sa, len) }
-            guard rc == 0 else {
-                let err = errno
-                Darwin.close(fd)
-                if err == ENOENT || err == ECONNREFUSED {
-                    throw DenshaError.daemonNotRunning
-                }
-                throw DenshaError.daemonUnreachable("connect(\(path)): \(errnoText(err))")
+        let rc = try withAddress(path) { sa, len in Darwin.connect(fd, sa, len) }
+        guard rc == 0 else {
+            let err = errno
+            Darwin.close(fd)
+            if err == ENOENT || err == ECONNREFUSED {
+                throw DenshaError.daemonNotRunning
             }
-        } catch {
-            throw error
+            throw DenshaError.daemonUnreachable("connect(\(path)): \(errnoText(err))")
         }
         return UnixSocket(fd: fd)
     }
 
-    public static func listen(at path: String, backlog: Int32 = 32) throws -> UnixSocket {
-        try Paths.validateSocketPath(URL(fileURLWithPath: path))
+    public static func listen(at path: String) throws -> UnixSocket {
         unlink(path)
 
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
@@ -81,7 +76,7 @@ public final class UnixSocket: @unchecked Sendable {
             Darwin.close(fd)
             throw DenshaError.daemonUnreachable("bind(\(path)): \(err)")
         }
-        guard Darwin.listen(fd, backlog) == 0 else {
+        guard Darwin.listen(fd, 32) == 0 else {
             let err = errnoText()
             Darwin.close(fd)
             throw DenshaError.daemonUnreachable("listen(): \(err)")

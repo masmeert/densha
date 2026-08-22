@@ -7,7 +7,6 @@ source ./Scripts/version-env.sh
 
 APP="dist/Densha.app"
 ZIP="dist/Densha.zip"
-DITTO="${DITTO_BIN:-/usr/bin/ditto}"
 
 IDENTITY="${DENSHA_SIGN_IDENTITY:-}"
 if [ -z "$IDENTITY" ]; then
@@ -89,7 +88,7 @@ scrub_bundle() {
 
 scrub_bundle
 NOTARIZE_ZIP="$WORK_DIR/DenshaNotarize.zip"
-"$DITTO" --norsrc -c -k --keepParent "$APP" "$NOTARIZE_ZIP"
+/usr/bin/ditto --norsrc -c -k --keepParent "$APP" "$NOTARIZE_ZIP"
 
 echo "==> submitting for notarization"
 xcrun notarytool submit "$NOTARIZE_ZIP" "${NOTARY_ARGS[@]}" --wait
@@ -99,7 +98,7 @@ xcrun stapler staple "$APP"
 
 scrub_bundle
 rm -f "$ZIP"
-"$DITTO" --norsrc -c -k --keepParent "$APP" "$ZIP"
+/usr/bin/ditto --norsrc -c -k --keepParent "$APP" "$ZIP"
 
 ./Scripts/package-dsyms.sh
 

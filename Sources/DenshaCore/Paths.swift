@@ -51,13 +51,6 @@ public enum Paths {
     }
 
     public static let maxSocketPathLength = 103
-
-    public static func validateSocketPath(_ url: URL) throws {
-        let bytes = Array(url.path.utf8)
-        if bytes.count > maxSocketPathLength {
-            throw DenshaError.socketPathTooLong(path: url.path, length: bytes.count)
-        }
-    }
 }
 
 public enum DenshaError: Error, CustomStringConvertible, Sendable {

@@ -9,15 +9,13 @@ public final class DaemonClient {
         self.socket = socket
     }
 
-    public static func connect(spawningIfNeeded: Bool = true, timeout: Double = 10) throws
-        -> DaemonClient
-    {
+    public static func connect() throws -> DaemonClient {
         let path = Paths.socketFile.path
         do {
             return DaemonClient(socket: try UnixSocket.connect(to: path))
-        } catch DenshaError.daemonNotRunning where spawningIfNeeded {
+        } catch DenshaError.daemonNotRunning {
             try spawnDaemon()
-            let deadline = Date().addingTimeInterval(timeout)
+            let deadline = Date().addingTimeInterval(10)
             var delay: UInt32 = 20_000
             while Date() < deadline {
                 usleep(delay)

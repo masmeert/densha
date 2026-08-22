@@ -86,7 +86,7 @@ public enum DaemonRuntime {
     }
 
     static func log(_ message: String) {
-        let stamp = ISO8601DateFormatter().string(from: Date())
+        let stamp = Date().ISO8601Format()
         FileHandle.standardOutput.write(Data("[\(stamp)] \(message)\n".utf8))
     }
 }

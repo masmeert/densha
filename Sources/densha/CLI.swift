@@ -63,8 +63,7 @@ enum Style {
 
     static func describe(_ s: ServiceStatus) -> String {
         switch s.state {
-        case .running:
-            return s.health == .passing ? "running" : "running"
+        case .running: return "running"
         case .unhealthy: return yellow("unhealthy")
         case .starting: return "starting"
         case .stopping: return "stopping"
@@ -546,14 +545,11 @@ struct InstallCLI: AsyncParsableCommand {
         let source = CLIInstaller.currentExecutable()
         let link = try CLIInstaller.install(source: source)
         print("linked \(link) -> \(source)")
+        let dir = URL(fileURLWithPath: link).deletingLastPathComponent().path
         if !ProcessInfo.processInfo.environment["PATH", default: ""]
-            .split(separator: ":").contains(where: {
-                $0 == link.replacingOccurrences(of: "/densha", with: "")
-            })
+            .split(separator: ":").contains(where: { $0 == dir })
         {
-            print(
-                "note: \(link.replacingOccurrences(of: "/densha", with: "")) is not on your PATH yet"
-            )
+            print("note: \(dir) is not on your PATH yet")
         }
     }
 }
