@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- A repo-wide cleanup removed some 280 lines of dead code, single-use wrappers, and hand-rolled machinery the platform already ships — among it the log window's custom follow-scroll, now handed to SwiftUI, and a duplicated connection lock, now one shared primitive. Nothing changes in how Densha looks or behaves; the app is simply smaller.
+
 ## 0.4.0 — 2026-08-20
 
 ### Highlights
