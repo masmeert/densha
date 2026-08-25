@@ -158,7 +158,17 @@ actor Supervisor {
     }
 
     func killProcess(onPort port: Int) async throws -> [ScannedPort] {
-        guard let target = await rescanPorts().first(where: { $0.port == port }) else {
+        let target: ScannedPort
+        if let scanned = scannedPorts.first(where: { $0.port == port }) {
+            target = scanned
+        } else if let scanned = await rescanPorts().first(where: { $0.port == port }) {
+            target = scanned
+        } else {
+            throw DenshaError.nothingListeningOnPort(port)
+        }
+        guard PortScanner.listeningPorts(of: target.pid).contains(port) else {
+            listeningPorts.removeAll { $0.pid == target.pid && $0.port == port }
+            _ = filterListeningPorts()
             throw DenshaError.nothingListeningOnPort(port)
         }
         let group = getpgid(target.pid)
@@ -176,19 +186,25 @@ actor Supervisor {
             throw DenshaError.killFailed(pid: target.pid, reason: String(cString: strerror(errno)))
         }
         var signal = "SIGTERM"
-        if await !waitForRelease(of: port, by: target.pid, timeout: Defaults.stopTimeout) {
+        var released = await waitForRelease(
+            of: port, by: target.pid, timeout: Defaults.stopTimeout)
+        if !released {
             kill(target.pid, SIGKILL)
             signal = "SIGKILL"
-            _ = await waitForRelease(of: port, by: target.pid, timeout: 1)
+            released = await waitForRelease(of: port, by: target.pid, timeout: 1)
         }
         log("killed \(target.processName) (pid \(target.pid)) on port \(port) with \(signal)")
-        return await rescanPorts()
+        if released {
+            listeningPorts.removeAll { $0.pid == target.pid && $0.port == port }
+        }
+        return filterListeningPorts()
     }
 
     private func waitForRelease(of port: Int, by pid: pid_t, timeout: Double) async -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(timeout))
         while PortScanner.listeningPorts(of: pid).contains(port) {
-            guard Date() < deadline else { return false }
+            guard clock.now < deadline else { return false }
             try? await Task.sleep(for: .milliseconds(80))
         }
         return true

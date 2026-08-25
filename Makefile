@@ -55,6 +55,7 @@ app-debug: ## Build Densha.app (debug)
 run: app-debug ## Rebuild (debug) and relaunch the app
 	-@pkill -f "Densha.app/Contents/MacOS/Densha" 2>/dev/null || true
 	@sleep 0.5
+	-@$(CLI) daemon stop >/dev/null 2>&1 || true
 	open $(APP)
 
 stop: ## Quit the app and stop the daemon
