@@ -131,7 +131,7 @@ public struct PortScanRules: Sendable, Equatable {
 
 public struct Defaults: Sendable {
     public static let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
-    public static let shellArgs = ["-lc"]
+    public static let shellArgs = ["-lic"]
     public static let stopTimeout: Double = 5
     public static let restartGrace = 250
     public static let healthInterval: Double = 2

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- Services now run through an interactive login shell (`shell_args = ["-lic"]`) rather than a login shell alone, so node, python and their version managers resolve the way they do in your terminal — nvm, fnm, volta, mise and asdf are initialised in ~/.zshrc, which a non-interactive shell never reads. A service that reported "command not found" while the same command worked in the terminal now starts. Set `shell_args = ["-lc"]` under `[defaults]` to keep the old behaviour, which is worth doing if your shell startup greets interactive shells with a banner.
+
 ## 0.5.0 — 2026-08-25
 
 ### Added

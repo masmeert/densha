@@ -20,7 +20,7 @@ struct ConfigTests {
             """)
         let web = try #require(config.service(named: "web"))
         #expect(web.command == "pnpm dev")
-        #expect(web.shellArgs == ["-lc"])
+        #expect(web.shellArgs == ["-lic"])
         #expect(web.stopTimeout == 5)
         #expect(web.restartGrace == 250)
         #expect(web.autostart == false)
@@ -39,7 +39,7 @@ struct ConfigTests {
             """)
         let web = try #require(config.service(named: "web"))
         #expect(web.argv.count == 3)
-        #expect(web.argv[1] == "-lc")
+        #expect(web.argv[1] == "-lic")
         #expect(web.argv[2] == "pnpm dev && echo done")
     }
 
@@ -49,7 +49,7 @@ struct ConfigTests {
             """
             [defaults]
             stop_timeout = 9
-            shell_args = ["-lic"]
+            shell_args = ["-lc"]
             restart_grace = 10
 
             [[service]]
@@ -67,8 +67,8 @@ struct ConfigTests {
         let b = try #require(config.service(named: "b"))
         #expect(a.stopTimeout == 9)
         #expect(b.stopTimeout == 30)
-        #expect(a.shellArgs == ["-lic"])
-        #expect(b.shellArgs == ["-lic"])
+        #expect(a.shellArgs == ["-lc"])
+        #expect(b.shellArgs == ["-lc"])
         #expect(a.restartGrace == 10)
     }
 

@@ -10,13 +10,15 @@ public enum Template {
         # declare the same port (only one of them runs at a time).
 
         [defaults]
-        # Commands run through a login shell so that PATH and version managers
-        # (mise, nvm, fnm, asdf) are set up the way they are in your terminal.
+        # Commands run through an interactive login shell, so PATH and version
+        # managers (mise, nvm, fnm, asdf) are set up the way they are in your
+        # terminal — including the ones initialised in ~/.zshrc, which zsh reads
+        # only for interactive shells.
         #
-        # If a service reports "command not found" but works in your terminal, your
-        # version manager is probably initialised in ~/.zshrc, which zsh only reads for
-        # *interactive* shells. Switch this to ["-lic"] in that case.
-        shell_args = ["-lc"]
+        # If your shell startup files greet interactive shells with a banner or a
+        # prompt framework, that lands in the service log. Switch this to ["-lc"]
+        # to keep the login shell without the interactive one.
+        shell_args = ["-lic"]
 
         # Seconds to wait after SIGTERM before resorting to SIGKILL.
         stop_timeout = 5
