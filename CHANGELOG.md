@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- Killing an unclaimed port no longer stalls on a second machine-wide socket scan; Densha revalidates the displayed process directly and updates its cached port list when the listener exits.
+- `make run` now restarts the background daemon, so a rebuilt app cannot silently keep testing an older helper process.
+
 ## 0.4.1 — 2026-08-22
 
 ### Changed
