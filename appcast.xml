@@ -3,6 +3,22 @@
     <channel>
         <title>Densha</title>
         <item>
+            <title>0.4.2</title>
+            <pubDate>Tue, 25 Aug 2026 07:21:23 +0200</pubDate>
+            <link>https://github.com/masmeert/densha</link>
+            <sparkle:version>10</sparkle:version>
+            <sparkle:shortVersionString>0.4.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>Densha 0.4.2</h2>
+<h3>Fixed</h3>
+<ul>
+<li>Killing an unclaimed port no longer stalls on a second machine-wide socket scan; Densha revalidates the displayed process directly and updates its cached port list when the listener exits.</li>
+<li><code>make run</code> now restarts the background daemon, so a rebuilt app cannot silently keep testing an older helper process.</li>
+</ul>
+]]></description>
+            <enclosure url="https://github.com/masmeert/densha/releases/download/v0.4.2/Densha-0.4.2-universal.zip" length="5260939" type="application/octet-stream" sparkle:edSignature="W7Pze86NkXrYgbKUl6tiBralo9qFWjSpgntUIOW2gYzlbF8orJSujUiznC3Q7zIrEcChe+bChhwsWqOmvbONBQ=="/>
+        </item>
+        <item>
             <title>0.4.1</title>
             <pubDate>Sat, 22 Aug 2026 09:39:51 +0200</pubDate>
             <link>https://github.com/masmeert/densha</link>
@@ -45,26 +61,6 @@
 </ul>
 ]]></description>
             <enclosure url="https://github.com/masmeert/densha/releases/download/v0.4.0/Densha-0.4.0-universal.zip" length="5274401" type="application/octet-stream" sparkle:edSignature="cSkyAMBJzlY0aj/tvOgQ2UuJ0oHRonkoEfuYHzPUdqUzXpzC27nl7RBkpsX2Nw0DbUL+WZC2I2O+DbfeIPmvBA=="/>
-        </item>
-        <item>
-            <title>0.3.2</title>
-            <pubDate>Wed, 19 Aug 2026 16:48:43 +0200</pubDate>
-            <link>https://github.com/masmeert/densha</link>
-            <sparkle:version>7</sparkle:version>
-            <sparkle:shortVersionString>0.3.2</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>Densha 0.3.2</h2>
-<h3>Added</h3>
-<ul>
-<li>Projects fold away: click a group header to collapse it, and it stays folded across launches. A collapsed project keeps its service count and shows the most restrictive signal among its members, so a failure cannot hide behind a fold.</li>
-</ul>
-<h3>Changed</h3>
-<ul>
-<li>Service status is now a three-aspect railway signal rather than a coloured dot, so state reads from lamp position as well as colour.</li>
-<li>Ports are shown as platform signs, and roll to the new number when a port changes.</li>
-</ul>
-]]></description>
-            <enclosure url="https://github.com/masmeert/densha/releases/download/v0.3.2/Densha-0.3.2-universal.zip" length="4961109" type="application/octet-stream" sparkle:edSignature="CfkEBRrevl2pR0aMNFVS2sgjFmd0usMD+0geAhjHyVQWLPOGPqxnikAit1ekOH7R7XrsktWqU2TKh6Z2bvgcBQ=="/>
         </item>
     </channel>
 </rss>
