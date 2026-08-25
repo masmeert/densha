@@ -50,10 +50,8 @@ fi
 echo "==> downloading $ASSET from $TAG"
 gh release download "$TAG" --pattern "$ASSET" --dir "$STAGING"
 
-# generate_appcast picks up a same-named .html beside an archive and embeds it
-# as that item's release notes, which is what Sparkle shows in its dialog.
-NOTES="$STAGING/${ASSET%.zip}.html"
-./Scripts/changelog-to-html.sh "$MARKETING_VERSION" > "$NOTES"
+NOTES="$STAGING/${ASSET%.zip}.md"
+./Scripts/changelog-section.sh "$MARKETING_VERSION" > "$NOTES"
 if [ ! -s "$NOTES" ]; then
     echo "error: no release notes for $MARKETING_VERSION in CHANGELOG.md" >&2
     exit 1

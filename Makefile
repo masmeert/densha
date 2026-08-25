@@ -6,7 +6,7 @@ CLI := $(APP)/Contents/Helpers/densha
 DAEMON_LOG := $(HOME)/.local/state/densha/denshad.log
 
 .PHONY: help build test fmt lint lint-scripts version xcode hooks app app-debug run stop \
-	status logs icon install install-agent uninstall-agent sign-check signing notarize dsyms smoke \
+	status logs icon install install-agent uninstall-agent sign-check notarize dsyms smoke \
 	appcast verify-appcast changelog validate-changelog licenses verify-release release clean
 
 help: ## Show this help
@@ -88,9 +88,6 @@ sign-check: ## Show the bundle's signature and Gatekeeper verdict
 	@echo "--- gatekeeper ---"
 	-@spctl -a -vv $(APP) 2>&1 || true
 
-signing: ## Report signing and notarizing availability
-	@./Scripts/signing-status.sh
-
 notarize: ## Sign, notarize and staple for distribution
 	./Scripts/notarize.sh
 
@@ -106,8 +103,8 @@ appcast: ## Regenerate appcast.xml from the published release
 verify-appcast: ## Check appcast.xml is signed and matches version.env
 	@./Scripts/verify-appcast.sh
 
-changelog: ## Print this version's release notes as HTML
-	@./Scripts/changelog-to-html.sh
+changelog: ## Print this version's release notes
+	@source ./Scripts/version-env.sh; ./Scripts/changelog-section.sh "$$MARKETING_VERSION"
 
 licenses: ## Collect third-party license notices
 	@./Scripts/collect-licenses.sh

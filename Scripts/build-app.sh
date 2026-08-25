@@ -23,9 +23,7 @@ else
     echo "==> building ($CONFIG)"
 fi
 
-swift build -c "$CONFIG" "${ARCHS[@]+"${ARCHS[@]}"}" --product DenshaApp
-swift build -c "$CONFIG" "${ARCHS[@]+"${ARCHS[@]}"}" --product denshad
-swift build -c "$CONFIG" "${ARCHS[@]+"${ARCHS[@]}"}" --product densha
+swift build -c "$CONFIG" "${ARCHS[@]+"${ARCHS[@]}"}"
 
 BIN="$(swift build -c "$CONFIG" "${ARCHS[@]+"${ARCHS[@]}"}" --show-bin-path)"
 
@@ -110,9 +108,19 @@ else
     SIGN=(codesign --force --options runtime --timestamp --sign "$IDENTITY")
 fi
 
-while IFS= read -r target; do
+VERSION_DIR="$(cd "$SPARKLE/Versions/Current" && pwd -P)"
+for target in \
+    "$VERSION_DIR/XPCServices/Downloader.xpc/Contents/MacOS/Downloader" \
+    "$VERSION_DIR/XPCServices/Downloader.xpc" \
+    "$VERSION_DIR/XPCServices/Installer.xpc/Contents/MacOS/Installer" \
+    "$VERSION_DIR/XPCServices/Installer.xpc" \
+    "$VERSION_DIR/Updater.app/Contents/MacOS/Updater" \
+    "$VERSION_DIR/Updater.app" \
+    "$VERSION_DIR/Autoupdate" \
+    "$VERSION_DIR/Sparkle" \
+    "$SPARKLE"; do
     "${SIGN[@]}" "$target"
-done < <(./Scripts/sparkle-paths.sh "$SPARKLE")
+done
 
 "${SIGN[@]}" "$HELPERS/denshad"
 "${SIGN[@]}" "$HELPERS/densha"

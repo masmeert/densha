@@ -16,7 +16,7 @@ if [ -z "$IDENTITY" ]; then
 fi
 if [ -z "$IDENTITY" ]; then
     echo "no Developer ID Application certificate found." >&2
-    echo "an 'Apple Development' certificate cannot notarize — run 'make signing'." >&2
+    echo "an 'Apple Development' certificate cannot notarize." >&2
     exit 1
 fi
 
@@ -52,7 +52,6 @@ no notary credentials. Provide one of, in order of preference:
   NOTARY_ASC_KEY_P8 + NOTARY_ASC_KEY_ID + NOTARY_ASC_ISSUER_ID  (App Store Connect API key)
   NOTARY_PROFILE=<name>                                         (a stored keychain profile)
   NOTARY_APPLE_ID + NOTARY_PASSWORD + NOTARY_TEAM_ID            (app-specific password)
-run 'make signing' for the one-time setup.
 USAGE
     exit 1
 fi
