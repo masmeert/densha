@@ -3,6 +3,18 @@
     <channel>
         <title>Densha</title>
         <item>
+            <title>0.5.1</title>
+            <pubDate>Tue, 25 Aug 2026 09:53:39 +0200</pubDate>
+            <link>https://github.com/masmeert/densha</link>
+            <sparkle:version>12</sparkle:version>
+            <sparkle:shortVersionString>0.5.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[### Changed
+- Services now run through an interactive login shell (`shell_args = ["-lic"]`) rather than a login shell alone, so node, python and their version managers resolve the way they do in your terminal — nvm, fnm, volta, mise and asdf are initialised in ~/.zshrc, which a non-interactive shell never reads. A service that reported "command not found" while the same command worked in the terminal now starts. Set `shell_args = ["-lc"]` under `[defaults]` to keep the old behaviour, which is worth doing if your shell startup greets interactive shells with a banner.
+]]></description>
+            <enclosure url="https://github.com/masmeert/densha/releases/download/v0.5.1/Densha-0.5.1-universal.zip" length="5269215" type="application/octet-stream" sparkle:edSignature="vTfCh9kKPaGNCTcNcfmA9Ap0S8M+T0UWoXs53fBXAp+1bV6SuyxMgzn2dA2ep/eQ1cA+N36NPhmqm6jQa0pLBg=="/>
+        </item>
+        <item>
             <title>0.5.0</title>
             <pubDate>Tue, 25 Aug 2026 09:38:13 +0200</pubDate>
             <link>https://github.com/masmeert/densha</link>
@@ -32,21 +44,6 @@
 </ul>
 ]]></description>
             <enclosure url="https://github.com/masmeert/densha/releases/download/v0.4.2/Densha-0.4.2-universal.zip" length="5260939" type="application/octet-stream" sparkle:edSignature="W7Pze86NkXrYgbKUl6tiBralo9qFWjSpgntUIOW2gYzlbF8orJSujUiznC3Q7zIrEcChe+bChhwsWqOmvbONBQ=="/>
-        </item>
-        <item>
-            <title>0.4.1</title>
-            <pubDate>Sat, 22 Aug 2026 09:39:51 +0200</pubDate>
-            <link>https://github.com/masmeert/densha</link>
-            <sparkle:version>9</sparkle:version>
-            <sparkle:shortVersionString>0.4.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>Densha 0.4.1</h2>
-<h3>Changed</h3>
-<ul>
-<li>A repo-wide cleanup removed some 280 lines of dead code, single-use wrappers, and hand-rolled machinery the platform already ships — among it the log window's custom follow-scroll, now handed to SwiftUI, and a duplicated connection lock, now one shared primitive. Nothing changes in how Densha looks or behaves; the app is simply smaller.</li>
-</ul>
-]]></description>
-            <enclosure url="https://github.com/masmeert/densha/releases/download/v0.4.1/Densha-0.4.1-universal.zip" length="5256358" type="application/octet-stream" sparkle:edSignature="kBX1gnXqneCc86AD4Xdn462jiwlNovu1kqiDjHWx39i6gYA+1gNoxWfD7PjnnxgdtMZj25YiX3InOEEDXKNTCg=="/>
         </item>
     </channel>
 </rss>
