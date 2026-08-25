@@ -3,6 +3,21 @@
     <channel>
         <title>Densha</title>
         <item>
+            <title>0.5.0</title>
+            <pubDate>Tue, 25 Aug 2026 09:38:13 +0200</pubDate>
+            <link>https://github.com/masmeert/densha</link>
+            <sparkle:version>11</sparkle:version>
+            <sparkle:shortVersionString>0.5.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[### Added
+- A port under "Other ports" can be adopted as a service with a single click: Densha reads the working directory of the process holding the port, takes the project name and dev command from it the same way the **+** flow does, and opens the service editor with the folder, project and port already filled in. The project is picked from the ones already configured when it matches, and offered as a new one when it does not.
+
+### Changed
+- Opening an unclaimed port in the browser now lives only in its right-click menu, since the row itself adds the port as a service.
+]]></description>
+            <enclosure url="https://github.com/masmeert/densha/releases/download/v0.5.0/Densha-0.5.0-universal.zip" length="5269058" type="application/octet-stream" sparkle:edSignature="rXYjNLdrJuCRRLJsCageGOLPkgOPe1YKN63lhDBYd27bzhyRsu6VZBhQT4Xso6ysjjvEvJ/GAUmg6bvk/JHpBg=="/>
+        </item>
+        <item>
             <title>0.4.2</title>
             <pubDate>Tue, 25 Aug 2026 07:21:23 +0200</pubDate>
             <link>https://github.com/masmeert/densha</link>
@@ -32,35 +47,6 @@
 </ul>
 ]]></description>
             <enclosure url="https://github.com/masmeert/densha/releases/download/v0.4.1/Densha-0.4.1-universal.zip" length="5256358" type="application/octet-stream" sparkle:edSignature="kBX1gnXqneCc86AD4Xdn462jiwlNovu1kqiDjHWx39i6gYA+1gNoxWfD7PjnnxgdtMZj25YiX3InOEEDXKNTCg=="/>
-        </item>
-        <item>
-            <title>0.4.0</title>
-            <pubDate>Thu, 20 Aug 2026 09:36:02 +0200</pubDate>
-            <link>https://github.com/masmeert/densha</link>
-            <sparkle:version>8</sparkle:version>
-            <sparkle:shortVersionString>0.4.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>Densha 0.4.0</h2>
-<h3>Highlights</h3>
-<ul>
-<li><strong>Services can be added without leaving the app</strong>: point Densha at the folder a service runs in and it writes the entry into services.toml, taking the project name from the folder — its package.json name, its git remote, or the folder itself. Editing a service and revealing it in Finder live on its right-click menu.</li>
-<li><strong>Take a port back</strong>: a port under "Other ports" can be killed from the menu bar or with <code>densha kill &lt;port&gt;</code>, which is the quickest way to hand a port back to the service that wants it.</li>
-</ul>
-<h3>Added</h3>
-<ul>
-<li>Services can be added from the menu bar with <strong>+</strong>: pick the folder a service runs in and Densha writes the entry into services.toml, comments and all. The project is taken from the folder — its package.json name, its git remote, or the folder itself — and created on the spot if it does not exist yet, or picked from the projects already configured. A package.json dev script is offered as the command.</li>
-<li>Right-click a service for "Edit Service…" and "Reveal in Finder". Editing rewrites the entry where it stands; moving a service to another project takes its old project with it when it was the last one there.</li>
-<li>A port under "Other ports" can be freed from the menu bar: hovering it turns up the same stop button the services have, which goes red and waits for a second click, and right-clicking offers the same. Densha sends SIGTERM to the process listening on that port, follows with SIGKILL if it holds on, and refuses the moment the port turns out to belong to a service it supervises.</li>
-<li><code>densha kill &lt;port&gt;</code> frees a port from the terminal, with or without the leading colon that <code>densha ports</code> prints.</li>
-</ul>
-<h3>Changed</h3>
-<ul>
-<li>Projects and "Other ports" now share one section header, so their disclosure arrows, titles and counts line up with the service rows underneath, and every gap between sections is the same.</li>
-<li>Unclaimed ports gained the copy button the service rows have, which also lines their port signs up with the ones above.</li>
-<li>Every action in the panel now falls in one of two columns: the header's <strong>+</strong> and <strong>⋯</strong>, a project's play and stop, a service's restart and stop, and a port's copy and stop all line up, and the port signs beside them do too. Opening an unclaimed port lives on the row itself and in its right-click menu, which is what freed the column up.</li>
-</ul>
-]]></description>
-            <enclosure url="https://github.com/masmeert/densha/releases/download/v0.4.0/Densha-0.4.0-universal.zip" length="5274401" type="application/octet-stream" sparkle:edSignature="cSkyAMBJzlY0aj/tvOgQ2UuJ0oHRonkoEfuYHzPUdqUzXpzC27nl7RBkpsX2Nw0DbUL+WZC2I2O+DbfeIPmvBA=="/>
         </item>
     </channel>
 </rss>
