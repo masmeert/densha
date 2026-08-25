@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 public struct ProjectFolder: Sendable, Equatable {
@@ -23,6 +24,21 @@ public struct ProjectFolder: Sendable, Equatable {
             projectName: sanitized(name),
             command: manifest?.command
         )
+    }
+
+    public static func inspect(pid: pid_t) -> ProjectFolder? {
+        guard let directory = workingDirectory(of: pid) else { return nil }
+        return inspect(URL(fileURLWithPath: directory))
+    }
+
+    static func workingDirectory(of pid: pid_t) -> String? {
+        var info = proc_vnodepathinfo()
+        let size = Int32(MemoryLayout<proc_vnodepathinfo>.size)
+        guard proc_pidinfo(pid, PROC_PIDVNODEPATHINFO, 0, &info, size) == size else { return nil }
+        let path = withUnsafeBytes(of: &info.pvi_cdir.vip_path) { raw in
+            String(cString: raw.baseAddress!.assumingMemoryBound(to: CChar.self))
+        }
+        return path.isEmpty ? nil : path
     }
 
     public static func sanitized(_ raw: String) -> String {

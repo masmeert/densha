@@ -4,6 +4,7 @@ import SwiftUI
 struct ScannedPortRow: View {
     let scanned: ScannedPort
     let killing: Bool
+    let onAdd: () -> Void
     let onOpen: () -> Void
     let onCopyURL: () -> Void
     let onKill: () -> Void
@@ -15,7 +16,7 @@ struct ScannedPortRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Button(action: onOpen) {
+            Button(action: onAdd) {
                 HStack(spacing: 10) {
                     UnsignalledMarker(
                         tint: conflicting ? Color.orange.opacity(0.9) : Color.secondary.opacity(0.5)
@@ -64,6 +65,7 @@ struct ScannedPortRow: View {
             if !inside { armed = false }
         }
         .contextMenu {
+            Button("Add as Service…") { onAdd() }
             Button("Open in Browser") { onOpen() }
             Button("Copy Address") { onCopyURL() }
             Divider()
@@ -115,7 +117,7 @@ struct ScannedPortRow: View {
         if let conflictsWith = scanned.conflictsWith {
             text += " — holds the port \(conflictsWith) needs"
         }
-        return text + " — open http://localhost:\(scanned.port)"
+        return text + " — click to add it as a service"
     }
 
     private var killHelpText: String {
@@ -129,9 +131,9 @@ struct ScannedPortRow: View {
     private var accessibilityText: String {
         if let conflictsWith = scanned.conflictsWith {
             return
-                "Open port \(scanned.port), used by \(scanned.processName), needed by \(conflictsWith)"
+                "Add port \(scanned.port), used by \(scanned.processName), needed by \(conflictsWith), as a service"
         }
-        return "Open port \(scanned.port), used by \(scanned.processName)"
+        return "Add port \(scanned.port), used by \(scanned.processName), as a service"
     }
 }
 
@@ -141,7 +143,7 @@ struct ScannedPortRow: View {
             ForEach(Sample.scannedPorts) { scanned in
                 ScannedPortRow(
                     scanned: scanned, killing: scanned.port == 6379,
-                    onOpen: {}, onCopyURL: {}, onKill: {})
+                    onAdd: {}, onOpen: {}, onCopyURL: {}, onKill: {})
             }
         }
         .frame(width: 316)

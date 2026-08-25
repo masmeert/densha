@@ -203,6 +203,7 @@ public final class AppModel {
         var editing: String?
         var project: String?
         var folder: String?
+        var newProject: String?
         var service: ServiceDraft?
     }
 
@@ -213,6 +214,22 @@ public final class AppModel {
             (try? ConfigDocument.load(from: configFile))?.cwd(ofProject: name)
         }
         serviceEditor = ServiceEditorRequest(project: project, folder: folder)
+    }
+
+    func requestNewService(adopting scanned: ScannedPort) {
+        let detected = ProjectFolder.inspect(pid: scanned.pid)
+        var request = ServiceEditorRequest(
+            folder: detected?.path,
+            service: ServiceDraft(
+                name: "web", command: detected?.command ?? "", port: scanned.port))
+        if let project = detected?.projectName, !project.isEmpty {
+            if projectNames.contains(project) {
+                request.project = project
+            } else {
+                request.newProject = project
+            }
+        }
+        serviceEditor = request
     }
 
     func requestEdit(_ service: ServiceStatus) {

@@ -53,8 +53,9 @@ private struct ServiceEditorForm: View {
         let service = request.service
         _folder = State(initialValue: request.folder ?? "")
         _projectChoice = State(
-            initialValue: request.project.map(ProjectChoice.existing) ?? .ungrouped)
-        _newProject = State(initialValue: "")
+            initialValue: request.newProject != nil
+                ? .new : request.project.map(ProjectChoice.existing) ?? .ungrouped)
+        _newProject = State(initialValue: request.newProject ?? "")
         _name = State(initialValue: service?.name ?? "web")
         _command = State(initialValue: service?.command ?? "")
         _port = State(initialValue: service?.port.map(String.init) ?? "")

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- A port under "Other ports" can be adopted as a service with a single click: Densha reads the working directory of the process holding the port, takes the project name and dev command from it the same way the **+** flow does, and opens the service editor with the folder, project and port already filled in. The project is picked from the ones already configured when it matches, and offered as a new one when it does not.
+
+### Changed
+- Opening an unclaimed port in the browser now lives only in its right-click menu, since the row itself adds the port as a service.
+
 ## 0.4.2 — 2026-08-25
 
 ### Fixed

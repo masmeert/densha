@@ -182,6 +182,7 @@ public struct MenuPanel: View {
                             ScannedPortRow(
                                 scanned: scanned,
                                 killing: model.killingPorts.contains(scanned.port),
+                                onAdd: { showNewService(adopting: scanned) },
                                 onOpen: { model.openInBrowser(scanned) },
                                 onCopyURL: {
                                     model.copyToClipboard("http://localhost:\(scanned.port)")
@@ -195,6 +196,7 @@ public struct MenuPanel: View {
                     height: CGFloat(min(model.scannedPorts.count, Self.visiblePortRows)) * 30 - 2
                 )
                 .scrollBounceBehavior(.basedOnSize)
+                .scrollIndicators(.never)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
@@ -264,6 +266,11 @@ public struct MenuPanel: View {
 
     private func showNewService(project: String? = nil) {
         model.requestNewService(project: project)
+        showServiceEditor()
+    }
+
+    private func showNewService(adopting scanned: ScannedPort) {
+        model.requestNewService(adopting: scanned)
         showServiceEditor()
     }
 

@@ -100,4 +100,15 @@ struct ProjectFolderTests {
 
         #expect(ProjectFolder.remoteName(inGitConfig: config) == "densha")
     }
+
+    @Test("the working directory of a live process is read")
+    func workingDirectoryIsRead() {
+        let expected = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .standardizedFileURL.path
+        let found = ProjectFolder.workingDirectory(of: getpid())
+        #expect(found.map { URL(fileURLWithPath: $0).standardizedFileURL.path } == expected)
+        #expect(ProjectFolder.inspect(pid: getpid()) != nil)
+        #expect(ProjectFolder.workingDirectory(of: -1) == nil)
+    }
+
 }
