@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.2 — 2026-08-25
 
 ### Fixed
 - Killing an unclaimed port no longer stalls on a second machine-wide socket scan; Densha revalidates the displayed process directly and updates its cached port list when the listener exits.

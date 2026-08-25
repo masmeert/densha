@@ -1,3 +1,3 @@
 public enum DenshaVersion {
-    public static let marketing = "0.4.1"
+    public static let marketing = "0.4.2"
 }
