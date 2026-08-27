@@ -128,6 +128,7 @@ public struct MenuPanel: View {
                 canStart: !group.allLive,
                 canStop: group.anyLive,
                 onToggle: { toggleCollapsed(group) },
+                onRestart: { model.restart(group) },
                 onStart: { model.start(group) },
                 onStop: { model.stop(group) },
                 onAddService: { showNewService(project: group.project) }
@@ -370,6 +371,7 @@ private struct GroupHeader: View {
     let canStart: Bool
     let canStop: Bool
     let onToggle: () -> Void
+    let onRestart: () -> Void
     let onStart: () -> Void
     let onStop: () -> Void
     let onAddService: () -> Void
@@ -389,6 +391,16 @@ private struct GroupHeader: View {
                 : "Collapsed, \(count) services, signal \(aspect.description)",
             onToggle: onToggle
         ) {
+            Button(action: onRestart) {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 9, weight: .semibold))
+            }
+            .buttonStyle(IconButtonStyle())
+            .disabled(!canStop)
+            .opacity(canStop ? 1 : 0.3)
+            .help("Restart \(subject)")
+            .accessibilityLabel("Restart \(subject)")
+
             Button(action: onStart) {
                 Image(systemName: "play.fill")
                     .font(.system(size: 9, weight: .semibold))

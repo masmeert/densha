@@ -124,6 +124,25 @@ struct AppModelTests {
         #expect(daemon.commands == [.start(names: ["storefront"]), .start(names: ["postgres"])])
     }
 
+    @Test("restarting a project restarts only its live services")
+    func restartingAProjectRestartsLiveServices() async {
+        let daemon = FakeDaemonService()
+        let model = AppModel(daemon: daemon, applicationActions: FakeApplicationActions())
+
+        model.connect()
+        daemon.continuation.yield(
+            .services([
+                ServiceStatus(name: "storefront/web", state: .running, port: 3000),
+                ServiceStatus(name: "storefront/api", state: .stopped),
+            ]))
+        await settle()
+
+        model.restart(model.groups[0])
+        await settle()
+
+        #expect(daemon.commands == [.restart(names: ["storefront/web"])])
+    }
+
     @Test("service actions use typed daemon commands")
     func serviceActionsUseTypedDaemonCommands() async {
         let daemon = FakeDaemonService()

@@ -111,6 +111,12 @@ public final class AppModel {
         perform(.stop(names: names), marking: names)
     }
 
+    func restart(_ group: ServiceGroup) {
+        let names = group.services.filter(\.isLive).map(\.name)
+        guard !names.isEmpty else { return }
+        perform(.restart(names: names), marking: names)
+    }
+
     func stopAll() {
         let names = services.filter(\.isLive).map(\.name)
         guard !names.isEmpty else { return }
