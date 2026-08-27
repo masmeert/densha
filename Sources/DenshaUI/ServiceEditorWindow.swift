@@ -144,6 +144,7 @@ private struct ServiceEditorForm: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
         }
+        .frame(minHeight: 420)
         .frame(width: 440)
         .navigationTitle(editing ? "Edit Service" : "New Service")
     }
