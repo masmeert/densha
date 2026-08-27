@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 — 2026-08-27
 
 ### Added
 - A project header now carries a restart button next to its start and stop buttons, the same one the service rows have. It restarts every service in the project that is currently running and leaves the stopped ones alone.
