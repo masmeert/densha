@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.7.0 — 2026-08-31
 
 ### Added
 - A **Power** tab joins Services in the menu bar panel, a home for power-user tools. It ships with two: keeping the Mac awake and keeping it awake with the lid closed.
