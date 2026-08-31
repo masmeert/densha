@@ -3,6 +3,23 @@
     <channel>
         <title>Densha</title>
         <item>
+            <title>0.7.0</title>
+            <pubDate>Mon, 31 Aug 2026 11:42:47 +0200</pubDate>
+            <link>https://github.com/masmeert/densha</link>
+            <sparkle:version>14</sparkle:version>
+            <sparkle:shortVersionString>0.7.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[### Added
+- A **Power** tab joins Services in the menu bar panel, a home for power-user tools. It ships with two: keeping the Mac awake and keeping it awake with the lid closed.
+- **Keep Mac awake** does what `caffeinate` does, with a mode picker: off, while services run, for 30 minutes, 1 hour or 3 hours (with a live countdown), or until turned off. "While services run" holds the Mac awake only while something is in service and survives relaunches. While any of it is active, a small cup joins the tram in the menu bar so an override is never left on unnoticed.
+- **Stay awake with lid closed** flips the system-wide `pmset disablesleep` setting. It goes through a small privileged helper that is approved once in System Settings → Login Items; until then the toggle falls back to asking for an admin password. The setting is read back from the system, so the toggle shows the truth even after a relaunch or when changed elsewhere.
+
+### Changed
+- Adding a service moved from the header **+** into the footer next to "Stop all", so the actions that belong to services show only on the Services tab.
+]]></description>
+            <enclosure url="https://github.com/masmeert/densha/releases/download/v0.7.0/Densha-0.7.0-universal.zip" length="6118025" type="application/octet-stream" sparkle:edSignature="7UotxIf7a/JgnXu6J+3IHRIyh3ijy1cBcvZfBwqdGscrBLhIYq9t0OaDc1/9Ffs2AlUciPYnK7roMnDNV+0MDQ=="/>
+        </item>
+        <item>
             <title>0.6.0</title>
             <pubDate>Thu, 27 Aug 2026 14:23:41 +0200</pubDate>
             <link>https://github.com/masmeert/densha</link>
@@ -25,21 +42,6 @@
 - Services now run through an interactive login shell (`shell_args = ["-lic"]`) rather than a login shell alone, so node, python and their version managers resolve the way they do in your terminal — nvm, fnm, volta, mise and asdf are initialised in ~/.zshrc, which a non-interactive shell never reads. A service that reported "command not found" while the same command worked in the terminal now starts. Set `shell_args = ["-lc"]` under `[defaults]` to keep the old behaviour, which is worth doing if your shell startup greets interactive shells with a banner.
 ]]></description>
             <enclosure url="https://github.com/masmeert/densha/releases/download/v0.5.1/Densha-0.5.1-universal.zip" length="5269215" type="application/octet-stream" sparkle:edSignature="vTfCh9kKPaGNCTcNcfmA9Ap0S8M+T0UWoXs53fBXAp+1bV6SuyxMgzn2dA2ep/eQ1cA+N36NPhmqm6jQa0pLBg=="/>
-        </item>
-        <item>
-            <title>0.5.0</title>
-            <pubDate>Tue, 25 Aug 2026 09:38:13 +0200</pubDate>
-            <link>https://github.com/masmeert/densha</link>
-            <sparkle:version>11</sparkle:version>
-            <sparkle:shortVersionString>0.5.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[### Added
-- A port under "Other ports" can be adopted as a service with a single click: Densha reads the working directory of the process holding the port, takes the project name and dev command from it the same way the **+** flow does, and opens the service editor with the folder, project and port already filled in. The project is picked from the ones already configured when it matches, and offered as a new one when it does not.
-
-### Changed
-- Opening an unclaimed port in the browser now lives only in its right-click menu, since the row itself adds the port as a service.
-]]></description>
-            <enclosure url="https://github.com/masmeert/densha/releases/download/v0.5.0/Densha-0.5.0-universal.zip" length="5269058" type="application/octet-stream" sparkle:edSignature="rXYjNLdrJuCRRLJsCageGOLPkgOPe1YKN63lhDBYd27bzhyRsu6VZBhQT4Xso6ysjjvEvJ/GAUmg6bvk/JHpBg=="/>
         </item>
     </channel>
 </rss>
