@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.8.0 — 2026-08-31
 
 ### Added
 - **Move cursor** nudges the pointer every 30 seconds for 1, 2, 3, or 5 minutes, with a live countdown and automatic permission request.
