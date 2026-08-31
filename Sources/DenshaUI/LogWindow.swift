@@ -159,30 +159,20 @@ private struct LogTranscript: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 0) {
                     if let failure = follower.failure {
                         Text(failure)
                             .font(.system(size: 12))
                             .foregroundStyle(.red)
                             .padding(8)
                     }
-                    ForEach(lines) { line in
-                        HStack(alignment: .top, spacing: 8) {
-                            if showTimestamps {
-                                Text(LogTranscriptText.time(line.ts))
-                                    .font(.system(size: 11, design: .monospaced))
-                                    .foregroundStyle(.tertiary)
-                                    .monospacedDigit()
-                            }
-                            Text(AnsiRenderer.attributed(line.text))
-                                .font(.system(size: 12, design: .monospaced))
-                                .textSelection(.enabled)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
+                    Text(LogTranscriptText.attributed(lines, showTimestamps: showTimestamps))
+                        .font(.system(size: 12, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 1)
-                        .id(line.seq)
-                    }
+                    Color.clear.frame(height: 0).id("bottom")
                 }
                 .padding(.vertical, 4)
             }
@@ -192,8 +182,8 @@ private struct LogTranscript: View {
             // defaultScrollAnchor only applies on size changes, so the jump when
             // follow turns back on still needs a proxy.
             .onChange(of: following) { _, isFollowing in
-                guard isFollowing, let last = lines.last?.seq else { return }
-                proxy.scrollTo(last, anchor: .bottom)
+                guard isFollowing else { return }
+                proxy.scrollTo("bottom", anchor: .bottom)
             }
         }
     }
@@ -220,6 +210,21 @@ enum LogTranscriptText {
     static func copyText(_ lines: [LogLine], query: String, showTimestamps: Bool) -> String {
         let capped = visible(lines, query: query).suffix(copyLineLimit)
         return plainText(Array(capped), showTimestamps: showTimestamps)
+    }
+
+    static func attributed(_ lines: [LogLine], showTimestamps: Bool) -> AttributedString {
+        var output = AttributedString()
+        for (index, line) in lines.enumerated() {
+            if index > 0 { output.append(AttributedString("\n")) }
+            if showTimestamps {
+                var timestamp = AttributedString("\(time(line.ts)) ")
+                timestamp.font = .system(size: 11, design: .monospaced)
+                timestamp.foregroundColor = .secondary
+                output.append(timestamp)
+            }
+            output.append(AnsiRenderer.attributed(line.text))
+        }
+        return output
     }
 
     static func plainText(_ lines: [LogLine], showTimestamps: Bool) -> String {
