@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.8.1 — 2026-08-31
 
 ### Fixed
 - Cursor movement intervals now repeat until turned off instead of stopping after the selected number of minutes.
