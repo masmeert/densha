@@ -239,6 +239,13 @@ public struct MenuPanel: View {
                 .padding(.bottom, 4)
             keepAwakeRow
             lidRow
+            Text("Activity")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.tertiary)
+                .padding(.horizontal, 14)
+                .padding(.top, 10)
+                .padding(.bottom, 4)
+            cursorMovementRow
             if power.helperStatus == .requiresApproval {
                 HStack(spacing: 6) {
                     Image(systemName: "lock.shield")
@@ -324,6 +331,41 @@ public struct MenuPanel: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 6)
         .help("Disables all sleep until you turn it off")
+    }
+
+    private var cursorMovementRow: some View {
+        HStack(spacing: 8) {
+            powerIcon("cursorarrow", active: power.cursorMovementActive)
+            Text("Move cursor")
+                .font(.system(size: 12))
+            Spacer(minLength: 8)
+            if let expiry = power.cursorMovementExpiry {
+                Text(timerInterval: .now...expiry, countsDown: true)
+                    .font(.system(size: 11))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+            Menu {
+                Button("Off") { power.setCursorMovement(until: nil) }
+                Divider()
+                Button("For 1 minute") { power.setCursorMovement(until: .now + 60) }
+                Button("For 2 minutes") { power.setCursorMovement(until: .now + 2 * 60) }
+                Button("For 3 minutes") { power.setCursorMovement(until: .now + 3 * 60) }
+                Button("For 5 minutes") { power.setCursorMovement(until: .now + 5 * 60) }
+            } label: {
+                Text(power.cursorMovementActive ? "On" : "Off")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 6)
+        .help("Moves the cursor every 30 seconds")
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            "Move cursor, \(power.cursorMovementActive ? "On" : "Off")")
     }
 
     private func powerIcon(_ systemName: String, active: Bool) -> some View {

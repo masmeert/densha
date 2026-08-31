@@ -33,4 +33,13 @@ import Testing
         #expect(!PowerControls.sleepDisabled(inPmsetOutput: disabled))
         #expect(!PowerControls.sleepDisabled(inPmsetOutput: ""))
     }
+
+    @Test func cursorNudgeMovesOnePointHorizontally() {
+        #expect(
+            PowerControls.cursorNudgePoint(from: CGPoint(x: 100, y: 20))
+                == CGPoint(x: 99, y: 20))
+        #expect(
+            PowerControls.cursorNudgePoint(from: CGPoint(x: 0, y: 20))
+                == CGPoint(x: 1, y: 20))
+    }
 }

@@ -1,3 +1,4 @@
+import CoreGraphics
 import DenshaCore
 import Foundation
 import IOKit.pwr_mgt
@@ -22,6 +23,7 @@ final class PowerControls {
     private var sleepAssertion: IOPMAssertionID = 0
     private var assertionHeld = false
     private var expiryTask: Task<Void, Never>?
+    private var cursorMovementTask: Task<Void, Never>?
 
     private init() {
         if UserDefaults.standard.bool(forKey: Self.whileServicesRunKey) {
@@ -30,6 +32,7 @@ final class PowerControls {
     }
 
     private(set) var keepAwakeMode: KeepAwakeMode = .off
+    private(set) var cursorMovementExpiry: Date?
 
     var servicesAreLive = false {
         didSet { applyKeepAwake() }
@@ -65,6 +68,47 @@ final class PowerControls {
         case .until(let date): date > Date()
         case .untilOff: true
         }
+    }
+
+    var cursorMovementActive: Bool {
+        cursorMovementExpiry.map { $0 > .now } ?? false
+    }
+
+    func setCursorMovement(until expiry: Date?) {
+        cursorMovementTask?.cancel()
+        cursorMovementTask = nil
+        cursorMovementExpiry = nil
+        guard let expiry else { return }
+        guard CGPreflightPostEventAccess() || CGRequestPostEventAccess() else { return }
+        cursorMovementExpiry = expiry
+        cursorMovementTask = Task {
+            while Date() < expiry {
+                Self.nudgeCursor()
+                do {
+                    try await Task.sleep(
+                        for: .seconds(min(30, max(0, expiry.timeIntervalSinceNow))))
+                } catch {
+                    return
+                }
+            }
+            cursorMovementExpiry = nil
+        }
+    }
+
+    nonisolated static func cursorNudgePoint(from point: CGPoint) -> CGPoint {
+        CGPoint(x: point.x + (point.x > 0 ? -1 : 1), y: point.y)
+    }
+
+    private nonisolated static func nudgeCursor() {
+        guard let source = CGEventSource(stateID: .hidSystemState) else { return }
+        let current = CGEvent(source: source)?.location ?? .zero
+        let moved = cursorNudgePoint(from: current)
+        CGEvent(
+            mouseEventSource: source, mouseType: .mouseMoved,
+            mouseCursorPosition: moved, mouseButton: .left)?.post(tap: .cghidEventTap)
+        CGEvent(
+            mouseEventSource: source, mouseType: .mouseMoved,
+            mouseCursorPosition: current, mouseButton: .left)?.post(tap: .cghidEventTap)
     }
 
     private func applyKeepAwake() {
