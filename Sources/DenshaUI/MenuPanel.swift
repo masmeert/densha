@@ -231,17 +231,14 @@ public struct MenuPanel: View {
 
     private var powerContent: some View {
         VStack(alignment: .leading, spacing: 2) {
-            powerRow(
-                title: "Keep Mac awake",
-                help: "Prevents idle sleep, like caffeinate",
-                isOn: $power.keepAwake)
-            powerRow(
-                title: "Stay awake with lid closed",
-                help: "Disables all sleep until you turn it off",
-                isOn: Binding(
-                    get: { power.lidSleepDisabled },
-                    set: { power.setLidSleepDisabled($0) }
-                ))
+            Text("Sleep")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.tertiary)
+                .padding(.horizontal, 14)
+                .padding(.top, 2)
+                .padding(.bottom, 4)
+            keepAwakeRow
+            lidRow
             if power.helperStatus == .requiresApproval {
                 HStack(spacing: 6) {
                     Image(systemName: "lock.shield")
@@ -262,19 +259,79 @@ public struct MenuPanel: View {
         .padding(.bottom, 10)
     }
 
-    private func powerRow(title: String, help: String, isOn: Binding<Bool>) -> some View {
-        HStack(spacing: 10) {
-            Text(title)
+    private var keepAwakeRow: some View {
+        HStack(spacing: 8) {
+            powerIcon("cup.and.saucer.fill", active: power.keepAwakeActive)
+            Text("Keep Mac awake")
                 .font(.system(size: 12))
             Spacer(minLength: 8)
-            Toggle(title, isOn: isOn)
-                .toggleStyle(.switch)
-                .controlSize(.mini)
-                .labelsHidden()
+            if case .until(let expiry) = power.keepAwakeMode {
+                Text(timerInterval: .now...expiry, countsDown: true)
+                    .font(.system(size: 11))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+            Menu {
+                Button("Off") { power.setKeepAwake(.off) }
+                Button("While services run") { power.setKeepAwake(.whileServicesRun) }
+                Divider()
+                Button("For 30 minutes") { power.setKeepAwake(.until(.now + 30 * 60)) }
+                Button("For 1 hour") { power.setKeepAwake(.until(.now + 60 * 60)) }
+                Button("For 3 hours") { power.setKeepAwake(.until(.now + 3 * 60 * 60)) }
+                Divider()
+                Button("Until turned off") { power.setKeepAwake(.untilOff) }
+            } label: {
+                Text(keepAwakeModeLabel)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 6)
-        .help(help)
+        .help("Prevents idle sleep, like caffeinate")
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Keep Mac awake, \(keepAwakeModeLabel)")
+    }
+
+    private var keepAwakeModeLabel: String {
+        switch power.keepAwakeMode {
+        case .off: "Off"
+        case .whileServicesRun: "While services run"
+        case .until: "On"
+        case .untilOff: "Until turned off"
+        }
+    }
+
+    private var lidRow: some View {
+        HStack(spacing: 8) {
+            powerIcon("laptopcomputer", active: power.lidSleepDisabled)
+            Text("Stay awake with lid closed")
+                .font(.system(size: 12))
+            Spacer(minLength: 8)
+            Toggle(
+                "Stay awake with lid closed",
+                isOn: Binding(
+                    get: { power.lidSleepDisabled },
+                    set: { power.setLidSleepDisabled($0) }
+                )
+            )
+            .toggleStyle(.switch)
+            .controlSize(.mini)
+            .labelsHidden()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 6)
+        .help("Disables all sleep until you turn it off")
+    }
+
+    private func powerIcon(_ systemName: String, active: Bool) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: 11))
+            .foregroundStyle(active ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary))
+            .frame(width: 16)
+            .animation(.easeOut(duration: 0.2), value: active)
     }
 
     private var emptyState: some View {

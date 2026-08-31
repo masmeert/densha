@@ -15,12 +15,17 @@ struct DenshaApp: App {
             MenuPanel()
                 .environment(model)
         } label: {
-            Image(systemName: model.menuBarSymbol)
-                .onAppear { model.connect() }
-                .accessibilityLabel(
-                    model.anyFailed
-                        ? "Densha, a service failed"
-                        : "Densha, \(model.liveCount) running")
+            HStack(spacing: 2) {
+                Image(systemName: model.menuBarSymbol)
+                if model.powerOverrideActive {
+                    Image(systemName: "cup.and.saucer.fill")
+                }
+            }
+            .onAppear { model.connect() }
+            .accessibilityLabel(
+                model.anyFailed
+                    ? "Densha, a service failed"
+                    : "Densha, \(model.liveCount) running")
         }
         .menuBarExtraStyle(.window)
 

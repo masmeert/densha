@@ -59,6 +59,7 @@ public final class AppModel {
 
     private func apply(_ incoming: [ServiceStatus]) {
         services = incoming
+        PowerControls.shared.servicesAreLive = incoming.contains(where: \.isLive)
         busy = busy.filter { name in
             guard let service = incoming.first(where: { $0.name == name }) else { return false }
             return service.state == .starting || service.state == .stopping
@@ -70,6 +71,7 @@ public final class AppModel {
     public var liveCount: Int { services.count(where: \.isLive) }
 
     public var menuBarSymbol: String { (anyFailed || anyLive) ? "tram.fill" : "tram" }
+    public var powerOverrideActive: Bool { PowerControls.shared.overrideActive }
 
     func toggle(_ service: ServiceStatus) {
         service.isLive ? stop(service.name) : start(service.name)

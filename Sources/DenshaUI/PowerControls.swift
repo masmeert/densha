@@ -4,26 +4,81 @@ import IOKit.pwr_mgt
 import Observation
 import ServiceManagement
 
+enum KeepAwakeMode: Equatable {
+    case off
+    case whileServicesRun
+    case until(Date)
+    case untilOff
+}
+
 @MainActor
 @Observable
 final class PowerControls {
     static let shared = PowerControls()
 
+    private static let whileServicesRunKey = "keepAwakeWhileServicesRun"
+
     private let helper = SMAppService.daemon(plistName: powerHelperPlistName)
     private var sleepAssertion: IOPMAssertionID = 0
+    private var assertionHeld = false
+    private var expiryTask: Task<Void, Never>?
 
-    var keepAwake = false {
-        didSet {
-            guard keepAwake != oldValue else { return }
-            if keepAwake {
-                IOPMAssertionCreateWithName(
-                    kIOPMAssertionTypePreventUserIdleSystemSleep as CFString,
-                    IOPMAssertionLevel(kIOPMAssertionLevelOn),
-                    "Densha keeps the Mac awake" as CFString,
-                    &sleepAssertion)
-            } else {
-                IOPMAssertionRelease(sleepAssertion)
+    private init() {
+        if UserDefaults.standard.bool(forKey: Self.whileServicesRunKey) {
+            keepAwakeMode = .whileServicesRun
+        }
+    }
+
+    private(set) var keepAwakeMode: KeepAwakeMode = .off
+
+    var servicesAreLive = false {
+        didSet { applyKeepAwake() }
+    }
+
+    var keepAwakeActive: Bool {
+        Self.holdsAssertion(mode: keepAwakeMode, servicesLive: servicesAreLive)
+    }
+
+    var overrideActive: Bool { keepAwakeActive || lidSleepDisabled }
+
+    func setKeepAwake(_ mode: KeepAwakeMode) {
+        expiryTask?.cancel()
+        expiryTask = nil
+        keepAwakeMode = mode
+        UserDefaults.standard.set(
+            mode == .whileServicesRun, forKey: Self.whileServicesRunKey)
+        if case .until(let date) = mode {
+            expiryTask = Task {
+                try? await Task.sleep(for: .seconds(max(0, date.timeIntervalSinceNow)))
+                guard !Task.isCancelled else { return }
+                keepAwakeMode = .off
+                applyKeepAwake()
             }
+        }
+        applyKeepAwake()
+    }
+
+    nonisolated static func holdsAssertion(mode: KeepAwakeMode, servicesLive: Bool) -> Bool {
+        switch mode {
+        case .off: false
+        case .whileServicesRun: servicesLive
+        case .until(let date): date > Date()
+        case .untilOff: true
+        }
+    }
+
+    private func applyKeepAwake() {
+        let wanted = keepAwakeActive
+        guard wanted != assertionHeld else { return }
+        assertionHeld = wanted
+        if wanted {
+            IOPMAssertionCreateWithName(
+                kIOPMAssertionTypePreventUserIdleSystemSleep as CFString,
+                IOPMAssertionLevel(kIOPMAssertionLevelOn),
+                "Densha keeps the Mac awake" as CFString,
+                &sleepAssertion)
+        } else {
+            IOPMAssertionRelease(sleepAssertion)
         }
     }
 

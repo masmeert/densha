@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- A **Power** tab joins Services in the menu bar panel, a home for power-user tools. It ships with two: keeping the Mac awake and keeping it awake with the lid closed.
+- **Keep Mac awake** does what `caffeinate` does, with a mode picker: off, while services run, for 30 minutes, 1 hour or 3 hours (with a live countdown), or until turned off. "While services run" holds the Mac awake only while something is in service and survives relaunches. While any of it is active, a small cup joins the tram in the menu bar so an override is never left on unnoticed.
+- **Stay awake with lid closed** flips the system-wide `pmset disablesleep` setting. It goes through a small privileged helper that is approved once in System Settings → Login Items; until then the toggle falls back to asking for an admin password. The setting is read back from the system, so the toggle shows the truth even after a relaunch or when changed elsewhere.
+
+### Changed
+- Adding a service moved from the header **+** into the footer next to "Stop all", so the actions that belong to services show only on the Services tab.
+
 ## 0.6.0 — 2026-08-27
 
 ### Added
