@@ -3,6 +3,21 @@
     <channel>
         <title>Densha</title>
         <item>
+            <title>0.8.0</title>
+            <pubDate>Mon, 31 Aug 2026 13:39:56 +0200</pubDate>
+            <link>https://github.com/masmeert/densha</link>
+            <sparkle:version>15</sparkle:version>
+            <sparkle:shortVersionString>0.8.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[### Added
+- **Move cursor** nudges the pointer every 30 seconds for 1, 2, 3, or 5 minutes, with a live countdown and automatic permission request.
+
+### Fixed
+- Log transcripts now allow selecting multiple lines at once.
+]]></description>
+            <enclosure url="https://github.com/masmeert/densha/releases/download/v0.8.0/Densha-0.8.0-universal.zip" length="6138733" type="application/octet-stream" sparkle:edSignature="4UjCRmbgf8OlKNxbnDHLUaDbnP7uU2ZJcVNJ5CuKMHQoQ/qelJKTnYZtOeQ9Z4+XZRorc5PSSHuIiYEemtuPAg=="/>
+        </item>
+        <item>
             <title>0.7.0</title>
             <pubDate>Mon, 31 Aug 2026 11:42:47 +0200</pubDate>
             <link>https://github.com/masmeert/densha</link>
@@ -30,18 +45,6 @@
 - A project header now carries a restart button next to its start and stop buttons, the same one the service rows have. It restarts every service in the project that is currently running and leaves the stopped ones alone.
 ]]></description>
             <enclosure url="https://github.com/masmeert/densha/releases/download/v0.6.0/Densha-0.6.0-universal.zip" length="5271142" type="application/octet-stream" sparkle:edSignature="0t9FQ6GXV4gJQH0rDzgiujWBp8EYgE2JpAJWwImziuMIJRcyQkga1fJPLXrh9m2Ykw8TB4fXPU26Cxq05actCQ=="/>
-        </item>
-        <item>
-            <title>0.5.1</title>
-            <pubDate>Tue, 25 Aug 2026 09:53:39 +0200</pubDate>
-            <link>https://github.com/masmeert/densha</link>
-            <sparkle:version>12</sparkle:version>
-            <sparkle:shortVersionString>0.5.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[### Changed
-- Services now run through an interactive login shell (`shell_args = ["-lic"]`) rather than a login shell alone, so node, python and their version managers resolve the way they do in your terminal — nvm, fnm, volta, mise and asdf are initialised in ~/.zshrc, which a non-interactive shell never reads. A service that reported "command not found" while the same command worked in the terminal now starts. Set `shell_args = ["-lc"]` under `[defaults]` to keep the old behaviour, which is worth doing if your shell startup greets interactive shells with a banner.
-]]></description>
-            <enclosure url="https://github.com/masmeert/densha/releases/download/v0.5.1/Densha-0.5.1-universal.zip" length="5269215" type="application/octet-stream" sparkle:edSignature="vTfCh9kKPaGNCTcNcfmA9Ap0S8M+T0UWoXs53fBXAp+1bV6SuyxMgzn2dA2ep/eQ1cA+N36NPhmqm6jQa0pLBg=="/>
         </item>
     </channel>
 </rss>
