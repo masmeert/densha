@@ -3,6 +3,18 @@
     <channel>
         <title>Densha</title>
         <item>
+            <title>0.8.1</title>
+            <pubDate>Mon, 31 Aug 2026 14:07:32 +0200</pubDate>
+            <link>https://github.com/masmeert/densha</link>
+            <sparkle:version>16</sparkle:version>
+            <sparkle:shortVersionString>0.8.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[### Fixed
+- Cursor movement intervals now repeat until turned off instead of stopping after the selected number of minutes.
+]]></description>
+            <enclosure url="https://github.com/masmeert/densha/releases/download/v0.8.1/Densha-0.8.1-universal.zip" length="6134898" type="application/octet-stream" sparkle:edSignature="00Gmw/4Znga6BN7rZMqXc6pFQ6TXDcm6C7bdjouhhJ1EkrwCsiRz3ZT6DkNEetU1IsphbDnTVlUyzPKwg7pcAQ=="/>
+        </item>
+        <item>
             <title>0.8.0</title>
             <pubDate>Mon, 31 Aug 2026 13:39:56 +0200</pubDate>
             <link>https://github.com/masmeert/densha</link>
@@ -33,18 +45,6 @@
 - Adding a service moved from the header **+** into the footer next to "Stop all", so the actions that belong to services show only on the Services tab.
 ]]></description>
             <enclosure url="https://github.com/masmeert/densha/releases/download/v0.7.0/Densha-0.7.0-universal.zip" length="6118025" type="application/octet-stream" sparkle:edSignature="7UotxIf7a/JgnXu6J+3IHRIyh3ijy1cBcvZfBwqdGscrBLhIYq9t0OaDc1/9Ffs2AlUciPYnK7roMnDNV+0MDQ=="/>
-        </item>
-        <item>
-            <title>0.6.0</title>
-            <pubDate>Thu, 27 Aug 2026 14:23:41 +0200</pubDate>
-            <link>https://github.com/masmeert/densha</link>
-            <sparkle:version>13</sparkle:version>
-            <sparkle:shortVersionString>0.6.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[### Added
-- A project header now carries a restart button next to its start and stop buttons, the same one the service rows have. It restarts every service in the project that is currently running and leaves the stopped ones alone.
-]]></description>
-            <enclosure url="https://github.com/masmeert/densha/releases/download/v0.6.0/Densha-0.6.0-universal.zip" length="5271142" type="application/octet-stream" sparkle:edSignature="0t9FQ6GXV4gJQH0rDzgiujWBp8EYgE2JpAJWwImziuMIJRcyQkga1fJPLXrh9m2Ykw8TB4fXPU26Cxq05actCQ=="/>
         </item>
     </channel>
 </rss>
