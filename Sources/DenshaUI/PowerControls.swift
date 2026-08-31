@@ -32,7 +32,7 @@ final class PowerControls {
     }
 
     private(set) var keepAwakeMode: KeepAwakeMode = .off
-    private(set) var cursorMovementExpiry: Date?
+    private(set) var cursorMovementIntervalMinutes: Int?
 
     var servicesAreLive = false {
         didSet { applyKeepAwake() }
@@ -71,27 +71,25 @@ final class PowerControls {
     }
 
     var cursorMovementActive: Bool {
-        cursorMovementExpiry.map { $0 > .now } ?? false
+        cursorMovementIntervalMinutes != nil
     }
 
-    func setCursorMovement(until expiry: Date?) {
+    func setCursorMovement(intervalMinutes: Int?) {
         cursorMovementTask?.cancel()
         cursorMovementTask = nil
-        cursorMovementExpiry = nil
-        guard let expiry else { return }
+        cursorMovementIntervalMinutes = nil
+        guard let intervalMinutes, intervalMinutes > 0 else { return }
         guard CGPreflightPostEventAccess() || CGRequestPostEventAccess() else { return }
-        cursorMovementExpiry = expiry
+        cursorMovementIntervalMinutes = intervalMinutes
         cursorMovementTask = Task {
-            while Date() < expiry {
+            while !Task.isCancelled {
                 Self.nudgeCursor()
                 do {
-                    try await Task.sleep(
-                        for: .seconds(min(30, max(0, expiry.timeIntervalSinceNow))))
+                    try await Task.sleep(for: .seconds(intervalMinutes * 60))
                 } catch {
                     return
                 }
             }
-            cursorMovementExpiry = nil
         }
     }
 
@@ -100,7 +98,7 @@ final class PowerControls {
     }
 
     private nonisolated static func nudgeCursor() {
-        guard let source = CGEventSource(stateID: .hidSystemState) else { return }
+        guard let source = CGEventSource(stateID: .combinedSessionState) else { return }
         let current = CGEvent(source: source)?.location ?? .zero
         let moved = cursorNudgePoint(from: current)
         CGEvent(

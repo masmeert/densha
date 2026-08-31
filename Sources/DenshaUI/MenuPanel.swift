@@ -339,21 +339,15 @@ public struct MenuPanel: View {
             Text("Move cursor")
                 .font(.system(size: 12))
             Spacer(minLength: 8)
-            if let expiry = power.cursorMovementExpiry {
-                Text(timerInterval: .now...expiry, countsDown: true)
-                    .font(.system(size: 11))
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-            }
             Menu {
-                Button("Off") { power.setCursorMovement(until: nil) }
+                Button("Off") { power.setCursorMovement(intervalMinutes: nil) }
                 Divider()
-                Button("For 1 minute") { power.setCursorMovement(until: .now + 60) }
-                Button("For 2 minutes") { power.setCursorMovement(until: .now + 2 * 60) }
-                Button("For 3 minutes") { power.setCursorMovement(until: .now + 3 * 60) }
-                Button("For 5 minutes") { power.setCursorMovement(until: .now + 5 * 60) }
+                Button("Every minute") { power.setCursorMovement(intervalMinutes: 1) }
+                Button("Every 2 minutes") { power.setCursorMovement(intervalMinutes: 2) }
+                Button("Every 3 minutes") { power.setCursorMovement(intervalMinutes: 3) }
+                Button("Every 5 minutes") { power.setCursorMovement(intervalMinutes: 5) }
             } label: {
-                Text(power.cursorMovementActive ? "On" : "Off")
+                Text(cursorMovementLabel)
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }
@@ -362,10 +356,14 @@ public struct MenuPanel: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 6)
-        .help("Moves the cursor every 30 seconds")
+        .help("Moves the cursor at the selected interval until turned off")
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(
-            "Move cursor, \(power.cursorMovementActive ? "On" : "Off")")
+        .accessibilityLabel("Move cursor, \(cursorMovementLabel)")
+    }
+
+    private var cursorMovementLabel: String {
+        guard let intervalMinutes = power.cursorMovementIntervalMinutes else { return "Off" }
+        return intervalMinutes == 1 ? "Every minute" : "Every \(intervalMinutes) minutes"
     }
 
     private func powerIcon(_ systemName: String, active: Bool) -> some View {
