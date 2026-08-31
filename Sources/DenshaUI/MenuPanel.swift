@@ -7,26 +7,59 @@ public struct MenuPanel: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openWindow) private var openWindow
     private let updater = Updater.shared
+    @Bindable private var power = PowerControls.shared
 
+    private enum PanelTab: String {
+        case services, power
+    }
+
+    @Namespace private var tabNamespace
+
+    @AppStorage("panelTab") private var tab = PanelTab.services
     @AppStorage("scannedPortsExpanded") private var scannedPortsExpanded = false
     @AppStorage("collapsedGroups") private var collapsedGroupsData = Data()
-    @State private var stopAllHovering = false
 
     private static let visiblePortRows = 6
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
+            tabPicker
             Divider()
-            VStack(alignment: .leading, spacing: 0) {
-                content
+            if tab == .services {
+                VStack(alignment: .leading, spacing: 0) {
+                    content
+                }
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+                Divider()
+                footer
+            } else {
+                powerContent
             }
-            .padding(.top, 8)
-            .padding(.bottom, 4)
-            Divider()
-            footer
         }
         .frame(width: 316)
+        .onAppear { power.refresh() }
+    }
+
+    private var tabPicker: some View {
+        HStack(spacing: 2) {
+            tabButton("Services", .services)
+            tabButton("Power", .power)
+            Spacer()
+        }
+        .padding(.horizontal, 10)
+        .padding(.bottom, 7)
+    }
+
+    private func tabButton(_ title: String, _ target: PanelTab) -> some View {
+        PanelTabButton(
+            title: title,
+            selected: tab == target,
+            namespace: tabNamespace
+        ) {
+            withAnimation(.easeOut(duration: 0.16)) { tab = target }
+        }
     }
 
     private var header: some View {
@@ -42,15 +75,6 @@ public struct MenuPanel: View {
             }
             Spacer()
             HStack(spacing: 2) {
-                Button {
-                    showNewService()
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 11, weight: .semibold))
-                }
-                .buttonStyle(IconButtonStyle())
-                .help("Add a service")
-                .accessibilityLabel("Add a service")
                 Menu {
                     Button("Edit services.toml…") { model.openConfigInEditor() }
                     Button("Reload config") { model.reload() }
@@ -205,6 +229,54 @@ public struct MenuPanel: View {
         .clipped()
     }
 
+    private var powerContent: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            powerRow(
+                title: "Keep Mac awake",
+                help: "Prevents idle sleep, like caffeinate",
+                isOn: $power.keepAwake)
+            powerRow(
+                title: "Stay awake with lid closed",
+                help: "Disables all sleep until you turn it off",
+                isOn: Binding(
+                    get: { power.lidSleepDisabled },
+                    set: { power.setLidSleepDisabled($0) }
+                ))
+            if power.helperStatus == .requiresApproval {
+                HStack(spacing: 6) {
+                    Image(systemName: "lock.shield")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                    Text("Approve the helper in Login Items")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 8)
+                    Button("Open…") { power.openLoginItemsSettings() }
+                        .controlSize(.small)
+                }
+                .padding(.horizontal, 14)
+                .padding(.top, 6)
+            }
+        }
+        .padding(.top, 8)
+        .padding(.bottom, 10)
+    }
+
+    private func powerRow(title: String, help: String, isOn: Binding<Bool>) -> some View {
+        HStack(spacing: 10) {
+            Text(title)
+                .font(.system(size: 12))
+            Spacer(minLength: 8)
+            Toggle(title, isOn: isOn)
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .labelsHidden()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 6)
+        .help(help)
+    }
+
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("No services yet")
@@ -240,26 +312,15 @@ public struct MenuPanel: View {
     }
 
     private var footer: some View {
-        Button {
-            model.stopAll()
-        } label: {
-            HStack(spacing: 5) {
-                Image(systemName: "stop.fill").font(.system(size: 9, weight: .semibold))
-                Text("Stop all").font(.system(size: 12))
+        HStack(spacing: 8) {
+            PanelFooterButton(icon: "plus", title: "Add service") {
+                showNewService()
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 30)
-            .background(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(Color.primary.opacity(stopAllHovering && model.anyLive ? 0.09 : 0.05))
-            )
-            .contentShape(Rectangle())
+            .help("Add a service")
+            PanelFooterButton(icon: "stop.fill", title: "Stop all", disabled: !model.anyLive) {
+                model.stopAll()
+            }
         }
-        .buttonStyle(.plain)
-        .disabled(!model.anyLive)
-        .opacity(model.anyLive ? 1 : 0.4)
-        .onHover { stopAllHovering = $0 }
-        .animation(.easeOut(duration: 0.14), value: stopAllHovering)
         .padding(.horizontal, 12)
         .padding(.top, 8)
         .padding(.bottom, 10)
@@ -297,6 +358,70 @@ public struct MenuPanel: View {
         openWindow(id: LogWindowID.value)
         NSApp.activate(ignoringOtherApps: true)
         MenuBarPanel.dismiss()
+    }
+}
+
+private struct PanelFooterButton: View {
+    let icon: String
+    let title: String
+    var disabled = false
+    let action: () -> Void
+
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: icon).font(.system(size: 9, weight: .semibold))
+                Text(title).font(.system(size: 12))
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 30)
+            .background(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(Color.primary.opacity(hovering && !disabled ? 0.09 : 0.05))
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .opacity(disabled ? 0.4 : 1)
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.14), value: hovering)
+    }
+}
+
+private struct PanelTabButton: View {
+    let title: String
+    let selected: Bool
+    let namespace: Namespace.ID
+    let action: () -> Void
+
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(selected ? .primary : hovering ? .secondary : .tertiary)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 4)
+                .background {
+                    if selected {
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(.primary.opacity(0.08))
+                            .matchedGeometryEffect(id: "selectedPanelTab", in: namespace)
+                    } else if hovering {
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(.primary.opacity(0.04))
+                    }
+                }
+                .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 

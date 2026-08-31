@@ -11,6 +11,7 @@ let package = Package(
         .executable(name: "denshad", targets: ["denshad"]),
         .executable(name: "densha", targets: ["denshacli"]),
         .executable(name: "DenshaApp", targets: ["DenshaApp"]),
+        .executable(name: "densha-powerd", targets: ["densha-powerd"]),
     ],
     dependencies: [
         .package(url: "https://github.com/dduan/TOMLDecoder.git", .upToNextMinor(from: "0.4.5")),
@@ -45,6 +46,11 @@ let package = Package(
             dependencies: ["DenshaCore", .product(name: "Sparkle", package: "Sparkle")]
         ),
         .executableTarget(name: "DenshaApp", dependencies: ["DenshaUI"]),
+        .executableTarget(
+            name: "densha-powerd",
+            dependencies: ["DenshaCore"],
+            path: "Sources/densha-powerd"
+        ),
         .testTarget(name: "DenshaCoreTests", dependencies: ["DenshaCore"]),
         .testTarget(name: "DenshaDaemonTests", dependencies: ["DenshaDaemon", "DenshaCore"]),
         .testTarget(name: "DenshaUITests", dependencies: ["DenshaUI", "DenshaCore"]),

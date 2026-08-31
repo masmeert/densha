@@ -27,13 +27,39 @@ swift build -c "$CONFIG" "${ARCHS[@]+"${ARCHS[@]}"}"
 
 BIN="$(swift build -c "$CONFIG" "${ARCHS[@]+"${ARCHS[@]}"}" --show-bin-path)"
 
+DAEMONS="$APP/Contents/Library/LaunchDaemons"
+
 echo "==> assembling $APP"
 rm -rf "$APP"
-mkdir -p "$MACOS" "$HELPERS" "$FRAMEWORKS" "$APP/Contents/Resources"
+mkdir -p "$MACOS" "$HELPERS" "$FRAMEWORKS" "$DAEMONS" "$APP/Contents/Resources"
 
 cp "$BIN/DenshaApp" "$MACOS/Densha"
 cp "$BIN/denshad" "$HELPERS/denshad"
 cp "$BIN/densha" "$HELPERS/densha"
+cp "$BIN/densha-powerd" "$HELPERS/densha-powerd"
+
+cat > "$DAEMONS/com.densha.powerd.plist" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.densha.powerd</string>
+	<key>BundleProgram</key>
+	<string>Contents/Helpers/densha-powerd</string>
+	<key>MachServices</key>
+	<dict>
+		<key>com.densha.powerd</key>
+		<true/>
+	</dict>
+	<key>AssociatedBundleIdentifiers</key>
+	<array>
+		<string>com.densha.Densha</string>
+	</array>
+</dict>
+</plist>
+PLIST
+plutil -lint "$DAEMONS/com.densha.powerd.plist" > /dev/null
 cp Resources/Densha.icns "$APP/Contents/Resources/Densha.icns"
 cp LICENSE "$APP/Contents/Resources/LICENSE.txt"
 ./Scripts/collect-licenses.sh "$APP/Contents/Resources/ThirdPartyLicenses.txt"
@@ -124,6 +150,7 @@ done
 
 "${SIGN[@]}" "$HELPERS/denshad"
 "${SIGN[@]}" "$HELPERS/densha"
+"${SIGN[@]}" "$HELPERS/densha-powerd"
 "${SIGN[@]}" "$APP"
 
 echo "==> verifying"
@@ -141,7 +168,7 @@ if [ "$CONFIG" = release ]; then
     DSYM_DIR="dist/dSYMs"
     rm -rf "$DSYM_DIR"
     mkdir -p "$DSYM_DIR"
-    for product in DenshaApp denshad densha; do
+    for product in DenshaApp denshad densha densha-powerd; do
         if [ ! -d "$BIN/$product.dSYM" ]; then
             echo "error: no $BIN/$product.dSYM to archive" >&2
             exit 1
