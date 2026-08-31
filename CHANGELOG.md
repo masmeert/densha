@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Move cursor** nudges the pointer every 30 seconds for 1, 2, 3, or 5 minutes, with a live countdown and automatic permission request.
+
+### Fixed
+- Log transcripts now allow selecting multiple lines at once.
+
 ## 0.7.0 — 2026-08-31
 
 ### Added
