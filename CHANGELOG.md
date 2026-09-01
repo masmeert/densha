@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.8.2 — 2026-09-01
 
 ### Fixed
 - **Keep Mac awake** now keeps the display on instead of only keeping the CPU awake. It was taking an assertion that let the screen black out and lock on the idle timer, so the Mac looked asleep while the switch was on.
