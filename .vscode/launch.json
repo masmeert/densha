@@ -59,6 +59,26 @@
             "target": "DenshaApp",
             "configuration": "release",
             "preLaunchTask": "swift: Build Release DenshaApp"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:densha}",
+            "name": "Debug densha-powerd",
+            "target": "densha-powerd",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug densha-powerd"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:densha}",
+            "name": "Release densha-powerd",
+            "target": "densha-powerd",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release densha-powerd"
         }
     ]
 }
