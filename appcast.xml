@@ -3,6 +3,20 @@
     <channel>
         <title>Densha</title>
         <item>
+            <title>0.8.2</title>
+            <pubDate>Tue, 01 Sep 2026 11:30:53 +0200</pubDate>
+            <link>https://github.com/masmeert/densha</link>
+            <sparkle:version>17</sparkle:version>
+            <sparkle:shortVersionString>0.8.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[### Fixed
+- **Keep Mac awake** now keeps the display on instead of only keeping the CPU awake. It was taking an assertion that let the screen black out and lock on the idle timer, so the Mac looked asleep while the switch was on.
+- Picking a **Move cursor** interval no longer does nothing on a Mac that has not granted Densha accessibility access. The interval is kept and the panel points at the Accessibility settings that are still missing, instead of silently snapping back to "Off".
+- A service that writes a lot of output no longer freezes the app. New lines are batched instead of redrawing the window for each one, and the transcript now only draws the lines you can see. The log view also gains Cmd+F find.
+]]></description>
+            <enclosure url="https://github.com/masmeert/densha/releases/download/v0.8.2/Densha-0.8.2-universal.zip" length="6156339" type="application/octet-stream" sparkle:edSignature="YCocPJxxDBQZfRZmXKOZASQH+Lw3MNgP5f4RbvzL2b2sONWmExVW16w022t/JNu5LVsRXD7QhJwEw/ExLVysBg=="/>
+        </item>
+        <item>
             <title>0.8.1</title>
             <pubDate>Mon, 31 Aug 2026 14:07:32 +0200</pubDate>
             <link>https://github.com/masmeert/densha</link>
@@ -28,23 +42,6 @@
 - Log transcripts now allow selecting multiple lines at once.
 ]]></description>
             <enclosure url="https://github.com/masmeert/densha/releases/download/v0.8.0/Densha-0.8.0-universal.zip" length="6138733" type="application/octet-stream" sparkle:edSignature="4UjCRmbgf8OlKNxbnDHLUaDbnP7uU2ZJcVNJ5CuKMHQoQ/qelJKTnYZtOeQ9Z4+XZRorc5PSSHuIiYEemtuPAg=="/>
-        </item>
-        <item>
-            <title>0.7.0</title>
-            <pubDate>Mon, 31 Aug 2026 11:42:47 +0200</pubDate>
-            <link>https://github.com/masmeert/densha</link>
-            <sparkle:version>14</sparkle:version>
-            <sparkle:shortVersionString>0.7.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[### Added
-- A **Power** tab joins Services in the menu bar panel, a home for power-user tools. It ships with two: keeping the Mac awake and keeping it awake with the lid closed.
-- **Keep Mac awake** does what `caffeinate` does, with a mode picker: off, while services run, for 30 minutes, 1 hour or 3 hours (with a live countdown), or until turned off. "While services run" holds the Mac awake only while something is in service and survives relaunches. While any of it is active, a small cup joins the tram in the menu bar so an override is never left on unnoticed.
-- **Stay awake with lid closed** flips the system-wide `pmset disablesleep` setting. It goes through a small privileged helper that is approved once in System Settings → Login Items; until then the toggle falls back to asking for an admin password. The setting is read back from the system, so the toggle shows the truth even after a relaunch or when changed elsewhere.
-
-### Changed
-- Adding a service moved from the header **+** into the footer next to "Stop all", so the actions that belong to services show only on the Services tab.
-]]></description>
-            <enclosure url="https://github.com/masmeert/densha/releases/download/v0.7.0/Densha-0.7.0-universal.zip" length="6118025" type="application/octet-stream" sparkle:edSignature="7UotxIf7a/JgnXu6J+3IHRIyh3ijy1cBcvZfBwqdGscrBLhIYq9t0OaDc1/9Ffs2AlUciPYnK7roMnDNV+0MDQ=="/>
         </item>
     </channel>
 </rss>
