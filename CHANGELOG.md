@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- **Keep Mac awake** now keeps the display on instead of only keeping the CPU awake. It was taking an assertion that let the screen black out and lock on the idle timer, so the Mac looked asleep while the switch was on.
+- Picking a **Move cursor** interval no longer does nothing on a Mac that has not granted Densha accessibility access. The interval is kept and the panel points at the Accessibility settings that are still missing, instead of silently snapping back to "Off".
+
 ## 0.8.1 — 2026-08-31
 
 ### Fixed

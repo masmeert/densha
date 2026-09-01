@@ -246,6 +246,21 @@ public struct MenuPanel: View {
                 .padding(.top, 10)
                 .padding(.bottom, 4)
             cursorMovementRow
+            if power.needsPostEventAccess {
+                HStack(spacing: 6) {
+                    Image(systemName: "hand.raised")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                    Text("Allow Densha under Accessibility")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 8)
+                    Button("Open…") { power.openAccessibilitySettings() }
+                        .controlSize(.small)
+                }
+                .padding(.horizontal, 14)
+                .padding(.top, 6)
+            }
             if power.helperStatus == .requiresApproval {
                 HStack(spacing: 6) {
                     Image(systemName: "lock.shield")

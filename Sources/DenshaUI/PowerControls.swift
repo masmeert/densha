@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import DenshaCore
 import Foundation
@@ -24,6 +25,7 @@ final class PowerControls {
     private var assertionHeld = false
     private var expiryTask: Task<Void, Never>?
     private var cursorMovementTask: Task<Void, Never>?
+    private var cursorMovementActivity: NSObjectProtocol?
 
     private init() {
         if UserDefaults.standard.bool(forKey: Self.whileServicesRunKey) {
@@ -33,6 +35,7 @@ final class PowerControls {
 
     private(set) var keepAwakeMode: KeepAwakeMode = .off
     private(set) var cursorMovementIntervalMinutes: Int?
+    private(set) var needsPostEventAccess = false
 
     var servicesAreLive = false {
         didSet { applyKeepAwake() }
@@ -78,12 +81,29 @@ final class PowerControls {
         cursorMovementTask?.cancel()
         cursorMovementTask = nil
         cursorMovementIntervalMinutes = nil
-        guard let intervalMinutes, intervalMinutes > 0 else { return }
-        guard CGPreflightPostEventAccess() || CGRequestPostEventAccess() else { return }
+        if let cursorMovementActivity {
+            ProcessInfo.processInfo.endActivity(cursorMovementActivity)
+        }
+        cursorMovementActivity = nil
+        guard let intervalMinutes, intervalMinutes > 0 else {
+            needsPostEventAccess = false
+            return
+        }
+        // CGRequestPostEventAccess only opens the prompt: it answers false until the
+        // approval lands, so take the selection anyway and say what is still missing.
+        needsPostEventAccess = !(CGPreflightPostEventAccess() || CGRequestPostEventAccess())
         cursorMovementIntervalMinutes = intervalMinutes
+        // Densha is LSUIElement, so App Nap throttles its timers once the panel closes and
+        // stretches this sleep well past the idle threshold the nudge exists to beat. The
+        // activity stops the throttling without holding the Mac awake — that is the other
+        // switch's job.
+        cursorMovementActivity = ProcessInfo.processInfo.beginActivity(
+            options: .userInitiatedAllowingIdleSystemSleep, reason: "moving the cursor")
         cursorMovementTask = Task {
             while !Task.isCancelled {
-                Self.nudgeCursor()
+                // A stale accessibility grant preflights as approved and then drops every
+                // posted event, so trust the idle clock rather than the permission answer.
+                needsPostEventAccess = !Self.nudgeCursor()
                 do {
                     try await Task.sleep(for: .seconds(intervalMinutes * 60))
                 } catch {
@@ -97,8 +117,11 @@ final class PowerControls {
         CGPoint(x: point.x + (point.x > 0 ? -1 : 1), y: point.y)
     }
 
-    private nonisolated static func nudgeCursor() {
-        guard let source = CGEventSource(stateID: .combinedSessionState) else { return }
+    /// Nudges the cursor and answers whether the move actually reached the system, which is
+    /// the only reliable sign that posting events is permitted.
+    @discardableResult
+    private nonisolated static func nudgeCursor() -> Bool {
+        guard let source = CGEventSource(stateID: .combinedSessionState) else { return false }
         let current = CGEvent(source: source)?.location ?? .zero
         let moved = cursorNudgePoint(from: current)
         CGEvent(
@@ -107,20 +130,27 @@ final class PowerControls {
         CGEvent(
             mouseEventSource: source, mouseType: .mouseMoved,
             mouseCursorPosition: current, mouseButton: .left)?.post(tap: .cghidEventTap)
+        return CGEventSource.secondsSinceLastEventType(
+            .combinedSessionState, eventType: .mouseMoved) < 1
     }
 
     private func applyKeepAwake() {
         let wanted = keepAwakeActive
         guard wanted != assertionHeld else { return }
-        assertionHeld = wanted
         if wanted {
-            IOPMAssertionCreateWithName(
-                kIOPMAssertionTypePreventUserIdleSystemSleep as CFString,
+            // Display, not system: PreventUserIdleSystemSleep keeps the CPU up
+            // but lets the screen go black and lock, which is what users read as asleep.
+            // This one covers idle system sleep too, so it is the only assertion needed.
+            let created = IOPMAssertionCreateWithName(
+                kIOPMAssertionTypePreventUserIdleDisplaySleep as CFString,
                 IOPMAssertionLevel(kIOPMAssertionLevelOn),
                 "Densha keeps the Mac awake" as CFString,
                 &sleepAssertion)
+            assertionHeld = created == kIOReturnSuccess
         } else {
             IOPMAssertionRelease(sleepAssertion)
+            sleepAssertion = 0
+            assertionHeld = false
         }
     }
 
@@ -129,6 +159,9 @@ final class PowerControls {
 
     func refresh() {
         helperStatus = helper.status
+        if cursorMovementActive {
+            needsPostEventAccess = !CGPreflightPostEventAccess()
+        }
         Task {
             let output = await Self.run("/usr/bin/pmset", "-g") ?? ""
             lidSleepDisabled = Self.sleepDisabled(inPmsetOutput: output)
@@ -153,6 +186,15 @@ final class PowerControls {
 
     func openLoginItemsSettings() {
         SMAppService.openSystemSettingsLoginItems()
+    }
+
+    func openAccessibilitySettings() {
+        guard
+            let url = URL(
+                string:
+                    "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+        else { return }
+        NSWorkspace.shared.open(url)
     }
 
     nonisolated static func sleepDisabled(inPmsetOutput output: String) -> Bool {
