@@ -152,40 +152,23 @@ private struct LogTranscript: View {
     let following: Bool
     let showTimestamps: Bool
 
-    private var lines: [LogLine] {
-        LogTranscriptText.visible(follower.lines, query: query)
-    }
-
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    if let failure = follower.failure {
-                        Text(failure)
-                            .font(.system(size: 12))
-                            .foregroundStyle(.red)
-                            .padding(8)
-                    }
-                    Text(LogTranscriptText.attributed(lines, showTimestamps: showTimestamps))
-                        .font(.system(size: 12, design: .monospaced))
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 1)
-                    Color.clear.frame(height: 0).id("bottom")
-                }
-                .padding(.vertical, 4)
+        VStack(spacing: 0) {
+            if let failure = follower.failure {
+                Text(failure)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+                Divider()
             }
-            .background(Color(nsColor: .textBackgroundColor))
-            .defaultScrollAnchor(.bottom)
-            .defaultScrollAnchor(following ? .bottom : nil, for: .sizeChanges)
-            // defaultScrollAnchor only applies on size changes, so the jump when
-            // follow turns back on still needs a proxy.
-            .onChange(of: following) { _, isFollowing in
-                guard isFollowing else { return }
-                proxy.scrollTo("bottom", anchor: .bottom)
-            }
+            LogTextView(
+                lines: LogTranscriptText.visible(follower.lines, query: query),
+                showTimestamps: showTimestamps,
+                following: following
+            )
         }
+        .background(Color(nsColor: .textBackgroundColor))
     }
 }
 
@@ -212,17 +195,26 @@ enum LogTranscriptText {
         return plainText(Array(capped), showTimestamps: showTimestamps)
     }
 
-    static func attributed(_ lines: [LogLine], showTimestamps: Bool) -> AttributedString {
-        var output = AttributedString()
+    static func line(_ line: LogLine, showTimestamps: Bool) -> NSAttributedString {
+        let output = NSMutableAttributedString()
+        if showTimestamps {
+            output.append(
+                NSAttributedString(
+                    string: "\(time(line.ts)) ",
+                    attributes: [
+                        .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .regular),
+                        .foregroundColor: NSColor.secondaryLabelColor,
+                    ]))
+        }
+        output.append(AnsiRenderer.attributed(line.text))
+        return output
+    }
+
+    static func attributed(_ lines: [LogLine], showTimestamps: Bool) -> NSAttributedString {
+        let output = NSMutableAttributedString()
         for (index, line) in lines.enumerated() {
-            if index > 0 { output.append(AttributedString("\n")) }
-            if showTimestamps {
-                var timestamp = AttributedString("\(time(line.ts)) ")
-                timestamp.font = .system(size: 11, design: .monospaced)
-                timestamp.foregroundColor = .secondary
-                output.append(timestamp)
-            }
-            output.append(AnsiRenderer.attributed(line.text))
+            if index > 0 { output.append(NSAttributedString(string: "\n")) }
+            output.append(self.line(line, showTimestamps: showTimestamps))
         }
         return output
     }

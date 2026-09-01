@@ -32,7 +32,7 @@ struct LogTranscriptTextTests {
     @Test("attributed text joins every line into one transcript")
     func attributedTextJoinsEveryLineIntoOneTranscript() {
         let text = LogTranscriptText.attributed(lines, showTimestamps: false)
-        #expect(String(text.characters) == "> vite\n  VITE ready\nerror TS2304")
+        #expect(text.string == "> vite\n  VITE ready\nerror TS2304")
     }
 
     @Test("plain text prefixes timestamps when shown")
