@@ -239,28 +239,6 @@ public struct MenuPanel: View {
                 .padding(.bottom, 4)
             keepAwakeRow
             lidRow
-            Text("Activity")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.tertiary)
-                .padding(.horizontal, 14)
-                .padding(.top, 10)
-                .padding(.bottom, 4)
-            cursorMovementRow
-            if power.needsPostEventAccess {
-                HStack(spacing: 6) {
-                    Image(systemName: "hand.raised")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.tertiary)
-                    Text("Allow Densha under Accessibility")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                    Spacer(minLength: 8)
-                    Button("Open…") { power.openAccessibilitySettings() }
-                        .controlSize(.small)
-                }
-                .padding(.horizontal, 14)
-                .padding(.top, 6)
-            }
             if power.helperStatus == .requiresApproval {
                 HStack(spacing: 6) {
                     Image(systemName: "lock.shield")
@@ -346,39 +324,6 @@ public struct MenuPanel: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 6)
         .help("Disables all sleep until you turn it off")
-    }
-
-    private var cursorMovementRow: some View {
-        HStack(spacing: 8) {
-            powerIcon("cursorarrow", active: power.cursorMovementActive)
-            Text("Move cursor")
-                .font(.system(size: 12))
-            Spacer(minLength: 8)
-            Menu {
-                Button("Off") { power.setCursorMovement(intervalMinutes: nil) }
-                Divider()
-                Button("Every minute") { power.setCursorMovement(intervalMinutes: 1) }
-                Button("Every 2 minutes") { power.setCursorMovement(intervalMinutes: 2) }
-                Button("Every 3 minutes") { power.setCursorMovement(intervalMinutes: 3) }
-                Button("Every 5 minutes") { power.setCursorMovement(intervalMinutes: 5) }
-            } label: {
-                Text(cursorMovementLabel)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 6)
-        .help("Moves the cursor at the selected interval until turned off")
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Move cursor, \(cursorMovementLabel)")
-    }
-
-    private var cursorMovementLabel: String {
-        guard let intervalMinutes = power.cursorMovementIntervalMinutes else { return "Off" }
-        return intervalMinutes == 1 ? "Every minute" : "Every \(intervalMinutes) minutes"
     }
 
     private func powerIcon(_ systemName: String, active: Bool) -> some View {

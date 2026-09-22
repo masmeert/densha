@@ -61,27 +61,4 @@ import Testing
         #expect(!ours.isEmpty)
         #expect(ours.allSatisfy { $0.contains("PreventUserIdleDisplaySleep") })
     }
-
-    // The selection has to stick even where posting events is not permitted, which
-    // is exactly what a test host is: an unapproved process.
-    @MainActor
-    @Test func cursorMovementSelectionSticksWithoutEventAccess() {
-        let power = PowerControls.shared
-        power.setCursorMovement(intervalMinutes: 3)
-        #expect(power.cursorMovementIntervalMinutes == 3)
-        #expect(power.cursorMovementActive)
-
-        power.setCursorMovement(intervalMinutes: nil)
-        #expect(power.cursorMovementIntervalMinutes == nil)
-        #expect(!power.needsPostEventAccess)
-    }
-
-    @Test func cursorNudgeMovesOnePointHorizontally() {
-        #expect(
-            PowerControls.cursorNudgePoint(from: CGPoint(x: 100, y: 20))
-                == CGPoint(x: 99, y: 20))
-        #expect(
-            PowerControls.cursorNudgePoint(from: CGPoint(x: 0, y: 20))
-                == CGPoint(x: 1, y: 20))
-    }
 }

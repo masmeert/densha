@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Removed
+- **Move cursor** and its accessibility permission prompt are gone. The Power tab now only covers sleep.
+
 ## 0.8.2 — 2026-09-01
 
 ### Fixed
