@@ -3,6 +3,25 @@
     <channel>
         <title>Densha</title>
         <item>
+            <title>0.8.3</title>
+            <pubDate>Tue, 22 Sep 2026 16:12:08 +0200</pubDate>
+            <link>https://github.com/masmeert/densha</link>
+            <sparkle:version>18</sparkle:version>
+            <sparkle:shortVersionString>0.8.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[### Changed
+- Densha is quieter when you are not looking at it. The daemon only scans for listening ports while the menu bar panel or `densha watch` is connected, and only wakes to flush log output while a service is actually running, so an idle `denshad` now costs close to nothing. Reading a service's output allocates less per chunk, log history is no longer reserved up front for services that never start, and filtering the log window only examines lines that have arrived since the last redraw instead of the whole transcript.
+
+### Removed
+- **Move cursor** and its accessibility permission prompt are gone. The Power tab now only covers sleep.
+
+### Fixed
+- Filtering a log no longer stutters as you type. Every keystroke starts the filter over, so it now waits for a short pause in typing before it runs.
+- A long-running service no longer makes its log window hitch every few lines. Once a transcript passed its 5000-line limit, every new batch trimmed one line and forced a full re-layout; it now trims in blocks.
+]]></description>
+            <enclosure url="https://github.com/masmeert/densha/releases/download/v0.8.3/Densha-0.8.3-universal.zip" length="6161412" type="application/octet-stream" sparkle:edSignature="2JvJBi+oASTtR41PVCsmYVC4RN3TJLfKfTrsWbtSvunPxvYGv1uBb2Dydz8uil0ZWa9ZrLlGwWIDU7o501TgDw=="/>
+        </item>
+        <item>
             <title>0.8.2</title>
             <pubDate>Tue, 01 Sep 2026 11:30:53 +0200</pubDate>
             <link>https://github.com/masmeert/densha</link>
@@ -27,21 +46,6 @@
 - Cursor movement intervals now repeat until turned off instead of stopping after the selected number of minutes.
 ]]></description>
             <enclosure url="https://github.com/masmeert/densha/releases/download/v0.8.1/Densha-0.8.1-universal.zip" length="6134898" type="application/octet-stream" sparkle:edSignature="00Gmw/4Znga6BN7rZMqXc6pFQ6TXDcm6C7bdjouhhJ1EkrwCsiRz3ZT6DkNEetU1IsphbDnTVlUyzPKwg7pcAQ=="/>
-        </item>
-        <item>
-            <title>0.8.0</title>
-            <pubDate>Mon, 31 Aug 2026 13:39:56 +0200</pubDate>
-            <link>https://github.com/masmeert/densha</link>
-            <sparkle:version>15</sparkle:version>
-            <sparkle:shortVersionString>0.8.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[### Added
-- **Move cursor** nudges the pointer every 30 seconds for 1, 2, 3, or 5 minutes, with a live countdown and automatic permission request.
-
-### Fixed
-- Log transcripts now allow selecting multiple lines at once.
-]]></description>
-            <enclosure url="https://github.com/masmeert/densha/releases/download/v0.8.0/Densha-0.8.0-universal.zip" length="6138733" type="application/octet-stream" sparkle:edSignature="4UjCRmbgf8OlKNxbnDHLUaDbnP7uU2ZJcVNJ5CuKMHQoQ/qelJKTnYZtOeQ9Z4+XZRorc5PSSHuIiYEemtuPAg=="/>
         </item>
     </channel>
 </rss>
