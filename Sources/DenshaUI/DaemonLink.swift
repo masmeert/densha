@@ -143,7 +143,7 @@ final class DaemonLink: Sendable {
 
             let deadline = Date().addingTimeInterval(backoff)
             while !control.isStopping, Date() < deadline {
-                usleep(50_000)
+                usleep(250_000)
             }
             backoff = min(backoff * 2, 5)
         }

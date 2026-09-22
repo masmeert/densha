@@ -163,7 +163,7 @@ private struct LogTranscript: View {
                 Divider()
             }
             LogTextView(
-                lines: LogTranscriptText.visible(follower.lines, query: query),
+                lines: follower.visibleLines(matching: query),
                 showTimestamps: showTimestamps,
                 following: following
             )
@@ -182,12 +182,14 @@ enum LogTranscriptText {
         return formatter
     }()
 
+    static func matches(_ line: LogLine, query: String) -> Bool {
+        Ansi.strip(line.text).localizedCaseInsensitiveContains(query)
+    }
+
     static func visible(_ lines: [LogLine], query: String) -> [LogLine] {
         let trimmedQuery = query.trimmingCharacters(in: .whitespaces)
         guard !trimmedQuery.isEmpty else { return lines }
-        return lines.filter {
-            Ansi.strip($0.text).localizedCaseInsensitiveContains(trimmedQuery)
-        }
+        return lines.filter { matches($0, query: trimmedQuery) }
     }
 
     static func copyText(_ lines: [LogLine], query: String, showTimestamps: Bool) -> String {

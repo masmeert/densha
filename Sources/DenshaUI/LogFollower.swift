@@ -11,6 +11,9 @@ class LogFollower {
     var failure: String?
 
     private let maxLines = 5000
+    @ObservationIgnored private var filterQuery: String?
+    @ObservationIgnored private var filtered: [LogLine] = []
+    @ObservationIgnored private var filteredThrough: UInt64?
     private var thread: Thread?
     private var drainTask: Task<Void, Never>?
     private let pending = Mutex<[LogLine]>([])
@@ -81,6 +84,36 @@ class LogFollower {
     func clear() {
         pending.withLock { $0.removeAll() }
         lines.removeAll()
+        filterQuery = nil
+        filtered = []
+        filteredThrough = nil
+    }
+
+    /// Matches carry over between redraws, so only the lines that arrived since
+    /// the last call are examined.
+    func visibleLines(matching query: String) -> [LogLine] {
+        let trimmed = query.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return lines }
+
+        if trimmed != filterQuery {
+            filterQuery = trimmed
+            filtered = []
+            filteredThrough = nil
+        }
+        if let oldest = lines.first?.seq, let first = filtered.first, first.seq < oldest {
+            filtered.removeAll { $0.seq < oldest }
+        }
+
+        var fresh = 0
+        if let through = filteredThrough {
+            fresh = lines.count
+            while fresh > 0, lines[fresh - 1].seq > through { fresh -= 1 }
+        }
+        for line in lines[fresh...] where LogTranscriptText.matches(line, query: trimmed) {
+            filtered.append(line)
+        }
+        filteredThrough = lines.last?.seq ?? filteredThrough
+        return filtered
     }
 
     /// Called from the reader thread: buffer instead of hopping to the main

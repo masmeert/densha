@@ -16,19 +16,20 @@ enum AnsiRenderer {
 
     static let plainFont = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
 
+    private static let boldFont = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .bold)
+
+    private static var italicFonts: [Bool: NSFont] = [:]
+
     private static func font(_ style: Style) -> NSFont {
-        var font =
-            style.bold
-            ? NSFont.monospacedSystemFont(ofSize: fontSize, weight: .bold)
-            : plainFont
-        if style.italic,
-            let italic = NSFontManager.shared.font(
-                withFamily: font.familyName ?? font.fontName, traits: .italicFontMask,
-                weight: style.bold ? 9 : 5, size: fontSize)
-        {
-            font = italic
-        }
-        return font
+        let upright = style.bold ? boldFont : plainFont
+        guard style.italic else { return upright }
+        if let cached = italicFonts[style.bold] { return cached }
+        let italic =
+            NSFontManager.shared.font(
+                withFamily: upright.familyName ?? upright.fontName, traits: .italicFontMask,
+                weight: style.bold ? 9 : 5, size: fontSize) ?? upright
+        italicFonts[style.bold] = italic
+        return italic
     }
 
     static func attributed(_ text: String) -> NSAttributedString {

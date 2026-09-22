@@ -1,31 +1,34 @@
 import Foundation
 
 public struct RingBuffer {
-    private var storage: [LogLine?]
+    private var storage: [LogLine] = []
+    private let capacity: Int
     private var head = 0
-    public private(set) var count = 0
+
+    public var count: Int { storage.count }
 
     public init(capacity: Int) {
-        storage = Array(repeating: nil, count: max(1, capacity))
+        self.capacity = max(1, capacity)
+        storage.reserveCapacity(min(self.capacity, 64))
     }
 
     public mutating func append(_ line: LogLine) {
-        storage[head] = line
-        head = (head + 1) % storage.count
-        if count < storage.count { count += 1 }
+        if storage.count < capacity {
+            storage.append(line)
+            head = storage.count % capacity
+        } else {
+            storage[head] = line
+            head = (head + 1) % capacity
+        }
     }
 
-    public var all: [LogLine] {
-        guard count > 0 else { return [] }
-        let start = (head - count + storage.count) % storage.count
-        return (0..<count).compactMap { storage[(start + $0) % storage.count] }
-    }
+    public var all: [LogLine] { tail(storage.count) }
 
     public func tail(_ n: Int) -> [LogLine] {
-        guard n > 0, count > 0 else { return [] }
-        let take = min(n, count)
+        guard n > 0, !storage.isEmpty else { return [] }
+        let take = min(n, storage.count)
         let start = (head - take + storage.count) % storage.count
-        return (0..<take).compactMap { storage[(start + $0) % storage.count] }
+        return (0..<take).map { storage[(start + $0) % storage.count] }
     }
 
 }
@@ -61,13 +64,20 @@ public final class LogStore {
         writeToFile(data)
 
         var produced: [LogLine] = []
-        for byte in data {
-            if byte == 0x0A {
+        var start = data.startIndex
+        while let newline = data[start...].firstIndex(of: 0x0A) {
+            let chunk = data[start..<newline]
+            if pending.isEmpty {
+                produced.append(makeLine(from: chunk))
+            } else {
+                pending.append(chunk)
                 produced.append(makeLine(from: pending))
                 pending.removeAll(keepingCapacity: true)
-            } else {
-                pending.append(byte)
             }
+            start = data.index(after: newline)
+        }
+        if start < data.endIndex {
+            pending.append(data[start...])
         }
         if pending.count >= maxPendingBytes {
             produced.append(makeLine(from: pending))
@@ -95,13 +105,12 @@ public final class LogStore {
     }
 
     public static func collapseCarriageReturns(_ raw: Data) -> String {
-        var bytes = Array(raw)
-        if bytes.last == 0x0D { bytes.removeLast() }
-        guard let lastCR = bytes.lastIndex(of: 0x0D) else {
-            return String(decoding: bytes, as: UTF8.self)
+        var frame = raw
+        if frame.last == 0x0D { frame = frame.dropLast() }
+        guard let lastCR = frame.lastIndex(of: 0x0D) else {
+            return String(decoding: frame, as: UTF8.self)
         }
-        let visible = bytes[(lastCR + 1)...]
-        return String(decoding: visible, as: UTF8.self)
+        return String(decoding: frame[frame.index(after: lastCR)...], as: UTF8.self)
     }
 
     public static func plainText(_ raw: Data) -> String {

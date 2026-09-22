@@ -112,9 +112,7 @@ public struct MenuPanel: View {
             if model.services.isEmpty {
                 emptyState
             } else {
-                ForEach(model.groups) { group in
-                    serviceList(group)
-                }
+                serviceLists
             }
             if !model.scannedPorts.isEmpty {
                 scannedPortSection
@@ -140,10 +138,15 @@ public struct MenuPanel: View {
         }
     }
 
-    private func serviceList(_ group: AppModel.ServiceGroup) -> some View {
-        let expanded = !collapsedGroups.contains(group.id)
+    private var serviceLists: some View {
+        let collapsed = collapsedGroups
+        return ForEach(model.groups) { group in
+            serviceList(group, expanded: !collapsed.contains(group.id))
+        }
+    }
 
-        return VStack(alignment: .leading, spacing: 2) {
+    private func serviceList(_ group: AppModel.ServiceGroup, expanded: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
             GroupHeader(
                 project: group.project,
                 count: group.services.count,

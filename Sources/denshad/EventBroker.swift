@@ -21,6 +21,10 @@ struct EventBroker {
         return (id, stream)
     }
 
+    var watcherCount: Int {
+        subscribers.values.count(where: \.wantsStatus)
+    }
+
     mutating func unsubscribe(_ id: UUID) {
         subscribers[id]?.continuation.finish()
         subscribers.removeValue(forKey: id)
