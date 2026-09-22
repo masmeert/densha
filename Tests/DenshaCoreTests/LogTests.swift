@@ -150,6 +150,13 @@ struct LogStoreTests {
         #expect((mode as? NSNumber)?.intValue == 0o600)
     }
 
+    @Test("several lines in one read keep their own carriage-return frames")
+    func multipleLinesInOneChunk() {
+        let (store, _) = makeStore()
+        let lines = store.ingest(Data("one\r\n\rstep 1\rstep 2\r\nthree\r\n".utf8))
+        #expect(lines.map(\.text) == ["one", "step 2", "three"])
+    }
+
     @Test("a newline-free flood is cut into chunks instead of growing without bound")
     func runawayLine() {
         let dir = URL(fileURLWithPath: NSTemporaryDirectory())

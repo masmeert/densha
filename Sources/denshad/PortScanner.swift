@@ -5,9 +5,14 @@ import Foundation
 enum PortScanner {
     static func listeningPorts() -> [ScannedPort] {
         var found: [ScannedPort] = []
+        var descriptors = [proc_fdinfo](repeating: proc_fdinfo(), count: 256)
         for pid in allProcessIdentifiers() {
-            for port in listeningPorts(of: pid) {
-                found.append(ScannedPort(port: port, pid: pid, processName: name(of: pid)))
+            let ports = listeningPorts(of: pid, reusing: &descriptors)
+                .filter { PortScanRules.scannablePorts.contains($0) }
+            guard !ports.isEmpty else { continue }
+            let processName = name(of: pid)
+            for port in ports {
+                found.append(ScannedPort(port: port, pid: pid, processName: processName))
             }
         }
         return found
@@ -63,20 +68,35 @@ enum PortScanner {
     }
 
     static func listeningPorts(of pid: pid_t) -> [Int] {
-        let probed = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, nil, 0)
-        guard probed > 0 else { return [] }
-        let capacity = Int(probed) / MemoryLayout<proc_fdinfo>.size + 16
-        var descriptors = [proc_fdinfo](repeating: proc_fdinfo(), count: capacity)
-        let written = proc_pidinfo(
-            pid, PROC_PIDLISTFDS, 0, &descriptors,
-            Int32(capacity * MemoryLayout<proc_fdinfo>.size))
-        guard written > 0 else { return [] }
+        var descriptors = [proc_fdinfo](repeating: proc_fdinfo(), count: 256)
+        return listeningPorts(of: pid, reusing: &descriptors)
+    }
+
+    private static let maxDescriptors = 1 << 16
+
+    private static func listeningPorts(
+        of pid: pid_t, reusing descriptors: inout [proc_fdinfo]
+    ) -> [Int] {
+        let stride = MemoryLayout<proc_fdinfo>.stride
+        var openDescriptors = 0
+        while true {
+            let written = descriptors.withUnsafeMutableBytes { raw in
+                Int(proc_pidinfo(pid, PROC_PIDLISTFDS, 0, raw.baseAddress, Int32(raw.count)))
+            }
+            guard written > 0 else { return [] }
+            openDescriptors = written / stride
+            guard openDescriptors == descriptors.count, descriptors.count < maxDescriptors else {
+                break
+            }
+            descriptors = [proc_fdinfo](
+                repeating: proc_fdinfo(), count: descriptors.count * 2)
+        }
 
         var ports: [Int] = []
-        for descriptor in descriptors.prefix(Int(written) / MemoryLayout<proc_fdinfo>.size) {
+        var info = socket_fdinfo()
+        let size = Int32(MemoryLayout<socket_fdinfo>.size)
+        for descriptor in descriptors.prefix(openDescriptors) {
             guard descriptor.proc_fdtype == UInt32(PROX_FDTYPE_SOCKET) else { continue }
-            var info = socket_fdinfo()
-            let size = Int32(MemoryLayout<socket_fdinfo>.size)
             guard proc_pidfdinfo(pid, descriptor.proc_fd, PROC_PIDFDSOCKETINFO, &info, size) == size
             else { continue }
             guard info.psi.soi_kind == SOCKINFO_TCP else { continue }

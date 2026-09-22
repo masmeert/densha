@@ -59,3 +59,57 @@ struct LogTranscriptTextTests {
         #expect(text == "error TS2304")
     }
 }
+
+@MainActor
+@Suite("LogFollower filtering")
+struct LogFollowerFilterTests {
+    private func line(_ seq: UInt64, _ text: String) -> LogLine {
+        LogLine(seq: seq, ts: Double(seq), text: text)
+    }
+
+    @Test("a blank query keeps every line")
+    func blankQueryKeepsEveryLine() {
+        let follower = LogFollower(service: "web")
+        follower.lines = [line(1, "boot"), line(2, "error")]
+        #expect(follower.visibleLines(matching: " ").map(\.seq) == [1, 2])
+    }
+
+    @Test("lines arriving after a filtered pass are matched and appended")
+    func newLinesExtendTheFilteredResult() {
+        let follower = LogFollower(service: "web")
+        follower.lines = [line(1, "boot"), line(2, "error one")]
+        #expect(follower.visibleLines(matching: "error").map(\.seq) == [2])
+
+        follower.lines += [line(3, "ready"), line(4, "\u{1B}[31mERROR two\u{1B}[0m")]
+        #expect(follower.visibleLines(matching: "error").map(\.seq) == [2, 4])
+    }
+
+    @Test("lines dropped off the top leave the filtered result")
+    func droppedLinesLeaveTheFilteredResult() {
+        let follower = LogFollower(service: "web")
+        follower.lines = [line(1, "error one"), line(2, "error two")]
+        #expect(follower.visibleLines(matching: "error").map(\.seq) == [1, 2])
+
+        follower.lines = [line(2, "error two"), line(3, "error three")]
+        #expect(follower.visibleLines(matching: "error").map(\.seq) == [2, 3])
+    }
+
+    @Test("changing the query refilters from scratch")
+    func changingTheQueryRefilters() {
+        let follower = LogFollower(service: "web")
+        follower.lines = [line(1, "boot"), line(2, "error")]
+        #expect(follower.visibleLines(matching: "error").map(\.seq) == [2])
+        #expect(follower.visibleLines(matching: "boot").map(\.seq) == [1])
+    }
+
+    @Test("clearing drops the remembered matches")
+    func clearingDropsRememberedMatches() {
+        let follower = LogFollower(service: "web")
+        follower.lines = [line(1, "error one")]
+        #expect(follower.visibleLines(matching: "error").map(\.seq) == [1])
+
+        follower.clear()
+        follower.lines = [line(2, "error two")]
+        #expect(follower.visibleLines(matching: "error").map(\.seq) == [2])
+    }
+}

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Changed
+- Densha is quieter when you are not looking at it. The daemon only scans for listening ports while the menu bar panel or `densha watch` is connected, and only wakes to flush log output while a service is actually running, so an idle `denshad` now costs close to nothing. Reading a service's output allocates less per chunk, log history is no longer reserved up front for services that never start, and filtering the log window only examines lines that have arrived since the last redraw instead of the whole transcript.
+
 ### Removed
 - **Move cursor** and its accessibility permission prompt are gone. The Power tab now only covers sleep.
 

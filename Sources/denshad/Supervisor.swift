@@ -8,8 +8,14 @@ enum ProcessEvent: Sendable {
 }
 
 final class SourceHolder: @unchecked Sendable {
+    static let readBufferBytes = 32 * 1024
+
     var read: DispatchSourceRead?
     var exit: DispatchSourceProcess?
+    let buffer = UnsafeMutableRawPointer.allocate(
+        byteCount: SourceHolder.readBufferBytes, alignment: MemoryLayout<UInt8>.alignment)
+
+    deinit { buffer.deallocate() }
 
     func teardown() {
         read?.cancel()
@@ -52,6 +58,7 @@ actor Supervisor {
     private var portScanTask: Task<Void, Never>?
     private var listeningPorts: [ScannedPort] = []
     private var scannedPorts: [ScannedPort] = []
+    private var lastPortScan: ContinuousClock.Instant?
 
     static let portScanInterval: Duration = .seconds(4)
 
@@ -110,8 +117,6 @@ actor Supervisor {
     func warnings() -> [String] { config.warnings }
 
     func bootstrap() async {
-        startIdleFlusher()
-        startPortScanner()
         let autos = config.services.filter(\.autostart).map(\.name)
         guard !autos.isEmpty else { return }
         for (name, reason) in await start(names: autos).sorted(by: { $0.key < $1.key }) {
@@ -123,9 +128,18 @@ actor Supervisor {
         order.compactMap { status[$0] }
     }
 
-    func portsSnapshot() -> [ScannedPort] { scannedPorts }
+    func portsSnapshot() async -> [ScannedPort] {
+        guard portScanTask == nil else { return scannedPorts }
+        if let lastPortScan,
+            lastPortScan.duration(to: ContinuousClock().now) < Self.portScanInterval
+        {
+            return scannedPorts
+        }
+        return await rescanPorts()
+    }
 
     func rescanPorts() async -> [ScannedPort] {
+        lastPortScan = ContinuousClock().now
         guard config.scan.enabled else {
             listeningPorts = []
             return filterListeningPorts()
@@ -138,7 +152,7 @@ actor Supervisor {
     }
 
     private func startPortScanner() {
-        portScanTask?.cancel()
+        guard portScanTask == nil else { return }
         portScanTask = Task { [weak self] in
             while !Task.isCancelled {
                 _ = await self?.rescanPorts()
@@ -268,11 +282,10 @@ actor Supervisor {
         let readSource = DispatchSource.makeReadSource(fileDescriptor: child.master, queue: queue)
         readSource.setEventHandler { [weak proc] in
             guard let cont = proc?.continuation else { return }
-            var buffer = [UInt8](repeating: 0, count: 32 * 1024)
             while true {
-                let n = read(child.master, &buffer, buffer.count)
+                let n = read(child.master, holder.buffer, SourceHolder.readBufferBytes)
                 if n > 0 {
-                    cont.yield(.output(Data(buffer[0..<n])))
+                    cont.yield(.output(Data(bytes: holder.buffer, count: n)))
                     continue
                 }
                 if n == 0 {
@@ -300,11 +313,10 @@ actor Supervisor {
             guard let cont = proc?.continuation else { return }
             var raw: Int32 = 0
             let waited = waitpid(child.pid, &raw, WNOHANG)
-            var buffer = [UInt8](repeating: 0, count: 32 * 1024)
             while true {
-                let n = read(child.master, &buffer, buffer.count)
+                let n = read(child.master, holder.buffer, SourceHolder.readBufferBytes)
                 if n > 0 {
-                    cont.yield(.output(Data(buffer[0..<n])))
+                    cont.yield(.output(Data(bytes: holder.buffer, count: n)))
                     continue
                 }
                 break
@@ -316,6 +328,7 @@ actor Supervisor {
         holder.exit = exitSource
 
         procs[svc.name] = proc
+        startIdleFlusher()
 
         var s = status[svc.name] ?? ServiceStatus(name: svc.name, state: .starting)
         s.state = .starting
@@ -483,7 +496,9 @@ actor Supervisor {
     func stopAll() async {
         _ = await stop(names: nil)
         idleFlushTask?.cancel()
+        idleFlushTask = nil
         portScanTask?.cancel()
+        portScanTask = nil
     }
 
     private func runHealthLoop(service name: String, health: ResolvedHealth) async {
@@ -553,30 +568,41 @@ actor Supervisor {
     }
 
     private func startIdleFlusher() {
-        idleFlushTask?.cancel()
+        guard idleFlushTask == nil else { return }
         idleFlushTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(250))
-                await self?.flushPendingLines()
+                guard let self, await self.flushPendingLines() else { return }
             }
         }
     }
 
-    private func flushPendingLines() {
+    private func flushPendingLines() -> Bool {
         for (name, store) in stores where procs[name] != nil {
             if let line = store.flushPending() {
                 eventBroker.broadcastLog(name: name, line: line)
             }
         }
+        guard !procs.isEmpty else {
+            idleFlushTask = nil
+            return false
+        }
+        return true
     }
 
     func subscribe(status wantsStatus: Bool, logFilter: String?) -> (UUID, AsyncStream<DaemonEvent>)
     {
-        eventBroker.subscribe(status: wantsStatus, logFilter: logFilter)
+        let subscription = eventBroker.subscribe(status: wantsStatus, logFilter: logFilter)
+        if wantsStatus { startPortScanner() }
+        return subscription
     }
 
     func unsubscribe(_ id: UUID) {
         eventBroker.unsubscribe(id)
+        if eventBroker.watcherCount == 0 {
+            portScanTask?.cancel()
+            portScanTask = nil
+        }
     }
 
     private func broadcastStatus() {
