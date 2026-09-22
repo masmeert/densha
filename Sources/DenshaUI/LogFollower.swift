@@ -11,6 +11,7 @@ class LogFollower {
     var failure: String?
 
     private let maxLines = 5000
+    private let trimSlack = 500
     @ObservationIgnored private var filterQuery: String?
     @ObservationIgnored private var filtered: [LogLine] = []
     @ObservationIgnored private var filteredThrough: UInt64?
@@ -139,7 +140,9 @@ class LogFollower {
         let fresh = known.map { last in incoming.filter { $0.seq > last } } ?? incoming
         guard !fresh.isEmpty else { return }
         lines.append(contentsOf: fresh)
-        if lines.count > maxLines {
+        // Trim with slack: a head-removal makes TextKit re-lay-out the whole
+        // transcript, so pay that once per `trimSlack` lines, not every drain.
+        if lines.count > maxLines + trimSlack {
             lines.removeFirst(lines.count - maxLines)
         }
     }

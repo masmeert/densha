@@ -11,6 +11,7 @@ public struct LogWindow: View {
 
     @State private var session = LogSession()
     @State private var query = ""
+    @State private var debouncedQuery = ""
     @State private var following = true
     @State private var showTimestamps = false
     @State private var keysToSend = ""
@@ -39,7 +40,7 @@ public struct LogWindow: View {
                 copy: {
                     model.copyToClipboard(
                         LogTranscriptText.copyText(
-                            session.follower?.lines ?? [], query: query,
+                            session.follower?.lines ?? [], query: debouncedQuery,
                             showTimestamps: showTimestamps))
                 },
                 download: {
@@ -51,7 +52,7 @@ public struct LogWindow: View {
             if let name = selectedService, let follower = session.follower {
                 LogTranscript(
                     follower: follower,
-                    query: query,
+                    query: debouncedQuery,
                     following: following,
                     showTimestamps: showTimestamps
                 )
@@ -69,6 +70,14 @@ public struct LogWindow: View {
             }
         }
         .frame(minWidth: 560, minHeight: 360)
+        // Filtering re-renders the whole transcript, so wait for a typing pause.
+        .task(id: query) {
+            if !query.isEmpty {
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+            guard !Task.isCancelled else { return }
+            debouncedQuery = query
+        }
         .onAppear {
             selectService(selectedService)
         }

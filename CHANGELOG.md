@@ -8,6 +8,10 @@
 ### Removed
 - **Move cursor** and its accessibility permission prompt are gone. The Power tab now only covers sleep.
 
+### Fixed
+- Filtering a log no longer stutters as you type. Every keystroke starts the filter over, so it now waits for a short pause in typing before it runs.
+- A long-running service no longer makes its log window hitch every few lines. Once a transcript passed its 5000-line limit, every new batch trimmed one line and forced a full re-layout; it now trims in blocks.
+
 ## 0.8.2 — 2026-09-01
 
 ### Fixed
